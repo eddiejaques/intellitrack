@@ -42,6 +42,8 @@ export interface VendorMatcher {
   id: string;
   label: string;
   kind: "analytics" | "ads" | "cdp" | "engagement" | "personalization";
+  /** cheap URL test used to skip unrelated traffic before any parsing or session work */
+  urlHint: RegExp;
   match(req: RawRequest): boolean;
   /** one request -> N events; id/t/page.step/raw_ref are filled in by the capture layer */
   parse(req: RawRequest): ParsedEvent[];

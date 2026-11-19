@@ -158,6 +158,7 @@ export const ga4: VendorMatcher = {
   id: "ga4",
   label: "Google Analytics 4",
   kind: "analytics",
+  urlHint: /\/g\/collect/,
   match: isGa4Request,
   parse: parseGa4,
   piiPolicy: "never",

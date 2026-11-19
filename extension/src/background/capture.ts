@@ -135,7 +135,7 @@ function belongsToSession(s: SessionMeta, req: Pick<RawRequest, "tabId" | "initi
 
 /** Quick pre-filter so we don't touch the session store for unrelated traffic. */
 export function mightBeTracking(url: string): boolean {
-  return url.includes("/g/collect");
+  return vendors.some((v) => v.urlHint.test(url));
 }
 
 export function handleRequest(req: RawRequest): Promise<void> {
