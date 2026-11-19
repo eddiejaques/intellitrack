@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "IntelliTrack",
+  "version": "0.1.0",
+  "description": "Record and audit GA4 journeys in the active tab.",
+  "permissions": ["activeTab", "scripting", "storage", "webRequest", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": {"service_worker": "src/background.js", "type": "module"},
+  "action": {"default_popup": "popup.html"},
+  "options_page": "options.html"
+}

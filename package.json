@@ -1,0 +1,1 @@
+{"name":"intellitrack","private":true,"type":"module","scripts":{"test":"node --test","eval":"node scripts/eval.js"}}
