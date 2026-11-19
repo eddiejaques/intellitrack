@@ -1,1 +1,27 @@
-{"name":"intellitrack","private":true,"type":"module","scripts":{"test":"node --test","eval":"node scripts/eval.js"}}
+{
+  "name": "intellitrack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "eval": "node scripts/run-eval.mjs",
+    "kanban": "node scripts/kanban.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.7",
+    "@types/jsdom": "^30.0.0",
+    "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.8",
+    "jsdom": "^31.0.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.11.0",
+    "idb": "^8.0.4"
+  }
+}

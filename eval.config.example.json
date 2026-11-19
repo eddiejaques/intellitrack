@@ -1,0 +1,6 @@
+[
+  { "name": "claude", "provider": "anthropic", "model": "claude-sonnet-5-5", "api_key_env": "ANTHROPIC_API_KEY" },
+  { "name": "openai", "provider": "openai", "model": "<an OpenAI model id>", "api_key_env": "OPENAI_API_KEY" },
+  { "name": "gemini", "provider": "gemini", "model": "<a Gemini model id>", "api_key_env": "GEMINI_API_KEY" },
+  { "name": "gateway", "provider": "openai_compatible", "base_url": "https://your-gateway.example", "model": "<model name>", "api_key_env": "GATEWAY_API_KEY" }
+]
