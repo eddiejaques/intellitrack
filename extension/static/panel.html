@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>IntelliTrack live</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  body { padding: 14px; }
+  .top { display: flex; align-items: center; gap: 12px; margin: 10px 0 14px; }
+  .count { font-size: 40px; line-height: 1; font-weight: 650; letter-spacing: -.03em; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); display: inline-block; margin-right: 6px; }
+  .dot.rec { background: var(--sev-critical); animation: pulse 1.8s infinite; } .dot.done { background: var(--ok); }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 7px transparent; } 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sev-critical) 50%, transparent); } }
+  @media (prefers-reduced-motion: reduce) { .dot.rec { animation: none; } }
+</style></head>
+<body>
+  <div class="row"><svg class="logo" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#4f46e5"/><circle cx="14" cy="14" r="7.4" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="14" cy="14" r="2.9" fill="#fff"/></svg><strong>IntelliTrack</strong><span class="spacer"></span><a id="history" class="btn ghost sm" href="sessions.html" target="_blank">Sessions</a><button id="toggle" class="btn sm primary">Start on current tab</button></div>
+  <div class="top"><div class="count" id="count">0</div><div><div class="muted">events captured</div><div class="muted"><span id="dot" class="dot"></span><span id="label">Ready</span></div></div></div>
+  <div id="log"></div>
+  <script src="panel.js"></script>
+</body></html>

@@ -14,6 +14,8 @@ const opts = {
     preview: "extension/src/ui/preview.ts",
     options: "extension/src/ui/options.ts",
     report: "extension/src/ui/report.ts",
+    panel: "extension/src/ui/panel.ts",
+    sessions: "extension/src/ui/sessions.ts",
   },
   bundle: true,
   loader: { ".md": "text" },

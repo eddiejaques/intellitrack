@@ -52,6 +52,28 @@ export interface VendorMatcher {
 
 export type ParsedEvent = Omit<NormalizedEvent, "id" | "t" | "raw_ref">;
 
+/** One captured tag request, parsed or not. This is what the raw tag log shows. */
+export interface RequestRow {
+  key: string;
+  sessionId: string;
+  requestId: string;
+  /** seconds since session start */
+  t: number;
+  url: string;
+  host: string;
+  method: string;
+  type: string;
+  /** a registered vendor id, or "unrecognized" when no parser claimed it */
+  vendor: string;
+  /** number of events parsed out of this request */
+  events: number;
+  status?: number;
+  error?: string;
+  /** request body, truncated (local only; never part of the audit payload) */
+  body?: string;
+  step?: string;
+}
+
 export interface Marker {
   id: string;
   name: string;
@@ -77,6 +99,11 @@ export interface SessionMeta {
   selection?: { journeys: string[]; excluded_steps: string[] };
   plan_calls?: number;
   last_plan_at?: number;
+  /** where the recording started: used to group sessions by site in the history */
+  site?: { origin: string; host: string; title?: string; url?: string };
+  /** tag requests stored / of which no vendor parser recognised */
+  request_count?: number;
+  unrecognized_count?: number;
 }
 
 export type Message =
@@ -88,10 +115,14 @@ export type Message =
   | { type: "manualPlan"; siteType: "ecommerce" | "lead_generation" | "content" | "other" }
   | { type: "setSelection"; journeys: string[]; excludedSteps: string[] }
   | { type: "setConsent"; origin: string; value: "always" | "ask" | "never" }
-  | { type: "audit"; payload: Payload; useLLM: boolean }
+  | { type: "audit"; sessionId: string; payload: Payload; useLLM: boolean; diagnostics?: AuditDiagnostics }
   | { type: "getReport"; sessionId: string }
+  | { type: "getSession"; sessionId: string }
+  | { type: "listSessions" }
+  | { type: "deleteSession"; sessionId: string }
   | { type: "getState" }
   | { type: "getEvents"; sessionId: string }
+  | { type: "getRequests"; sessionId: string }
   | { type: "testConnection"; config: import("../llm/types").LLMConfig };
 
 // ---- T2: plan, findings, payload -------------------------------------------
@@ -155,7 +186,7 @@ export interface CoverageEntry {
   step_name: string;
   expected: string[];
   observed: string[];
-  status: "matched" | "partial" | "missing" | "not_reached";
+  status: "matched" | "partial" | "missing" | "not_reached" | "no_data";
 }
 
 export interface MinimizedEvent {
@@ -205,12 +236,27 @@ export interface Payload {
 
 // ---- T5: audit report --------------------------------------------------------
 
+/** Capture-side facts that explain an empty or odd session. Not part of the LLM payload. */
+export interface AuditDiagnostics {
+  tag_requests: number;
+  not_parsed: number;
+  duration_s?: number;
+}
+
+export interface SessionSummary {
+  session: SessionMeta;
+  report?: { score: number; headline: string; created_at: number; inconclusive?: boolean; llm: AuditReport["llm"]["status"] };
+}
+
 export interface AuditReport {
   schema: "audit_report_v1";
   session_id: string;
   created_at: number;
   /** 0-100, computed locally and deterministically from the final findings */
   score: number;
+  /** nothing was captured, so there is nothing to judge: no score, no LLM call */
+  inconclusive?: boolean;
+  diagnostics?: AuditDiagnostics;
   headline: string;
   plan?: JourneyPlan;
   journey_coverage: CoverageEntry[];

@@ -1,5 +1,6 @@
 import { reportToMarkdown } from "../background/markdown";
-import type { AuditReport, Finding, Message, SessionMeta } from "../shared/types";
+import type { AuditReport, Finding, Message } from "../shared/types";
+import { fmtDuration, fmtWhen, pageUrl, resolveSession, siteLabel } from "./session";
 
 const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
 
@@ -40,9 +41,31 @@ function findingEl(f: Finding): HTMLElement {
     f.review ? h("div", "f-review", `LLM review · ${f.review.verdict}: ${f.review.explanation}`) : h("span"));
 }
 
+function inconclusiveView(r: AuditReport, sid: string): HTMLElement[] {
+  const d = r.diagnostics;
+  const steps: string[] = [];
+  if (d && d.tag_requests === 0) steps.push("No tag requests were seen at all. Make sure you pressed Start before loading or interacting with the page, and that an ad blocker is not stopping analytics.");
+  if (d && d.not_parsed > 0) steps.push(`${d.not_parsed} tag request(s) were logged but IntelliTrack can't parse them yet. Open the session log and expand them: they may be a vendor that isn't supported, or GA4 sent in an unusual way.`);
+  steps.push("Many European sites fire analytics only after cookie consent. Accept the banner, then keep browsing.");
+  steps.push("Interact with the page (open a product, add to cart). A single page load may send nothing you can see.");
+  const logLink = h("a", "btn secondary sm", "Open session log") as HTMLAnchorElement;
+  logLink.href = pageUrl("viewer.html", sid);
+  return [
+    h("div", "card hero-report", h("div", "ring", h("div", "num", h("span", "muted", "–"))),
+      h("div", "stack", h("div", "headline", "Nothing was captured, so there is nothing to audit yet."),
+        h("div", "row wrap", chip(new Date(r.created_at).toLocaleString()), chip(sid, "mono")))),
+    h("section", "card stack", h("h2", "", "What to check"), h("ol", "muted", ...steps.map((t) => h("li", "", t))),
+      d ? h("div", "row wrap", chip(`${d.tag_requests} tag requests`), chip(`${d.not_parsed} not parsed`), d.duration_s ? chip(`${d.duration_s}s recorded`) : h("span")) : h("span"), logLink),
+  ];
+}
+
 function render(r: AuditReport) {
   const root = document.getElementById("root")!;
   root.className = "";
+  if (r.inconclusive) {
+    root.replaceChildren(...inconclusiveView(r, r.session_id).map((k) => { k.style.marginTop = "16px"; return k; }));
+    return;
+  }
   const kids: HTMLElement[] = [];
 
   kids.push(h("div", "card hero-report",
@@ -92,10 +115,13 @@ function render(r: AuditReport) {
 }
 
 async function main() {
-  const s = await send<SessionMeta | undefined>({ type: "getState" });
+  const s = await resolveSession();
+  if (s) document.getElementById("who")!.replaceChildren(`${siteLabel(s)} · ${fmtWhen(s.startedAt)} · ${fmtDuration(s)}`);
   const r = s ? await send<AuditReport | undefined>({ type: "getReport", sessionId: s.id }) : undefined;
-  if (!r) {
-    document.getElementById("root")!.textContent = "No report yet. Open Preview & audit and run one.";
+  if (!r || !s) {
+    const root = document.getElementById("root")!;
+    root.replaceChildren(h("div", "card stack", h("p", "muted", s ? "This session has no report yet." : "No session found."),
+      s ? Object.assign(h("a", "btn primary sm", "Preview & audit this session"), { href: pageUrl("preview.html", s.id) }) : h("span")));
     return;
   }
   render(r);

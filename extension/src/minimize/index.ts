@@ -144,11 +144,19 @@ export interface BuildPayloadInput {
 export function buildPayload(input: BuildPayloadInput): Payload {
   // A step the user marked is "reached" even if it fired nothing - that is exactly a missing-event case.
   const markerIds = input.session.markers.map((m) => m.id);
-  const { findings, coverage } = runRules(input.events, {
+  const ruled = runRules(input.events, {
     plan: input.plan,
     ...(markerIds.length ? { reachedSteps: markerIds } : {}),
     ...input.rules,
   });
+  // Nothing captured: every step would read "missing", which is noise, not a finding.
+  // The report explains the empty session instead (see buildReport).
+  const empty = input.events.length === 0;
+  const findings = empty ? [] : ruled.findings;
+  const coverage: CoverageEntry[] = empty
+    ? (input.plan?.journeys ?? []).flatMap((j) =>
+        j.steps.map((s) => ({ journey: j.id, step: s.id, step_name: s.name, expected: s.expect.map((x) => x.event), observed: [], status: "no_data" as const })))
+    : ruled.coverage;
   const m = minimize(input.events, input.minimize);
   // Only cite events the recipient can actually see.
   const known = new Set<string>();

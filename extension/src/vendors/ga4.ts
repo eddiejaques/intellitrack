@@ -8,12 +8,17 @@ function safeUrl(url: string): URL | null {
   }
 }
 
-/** GA4 collect hit: path ends in /g/collect, v=2, tid=G-*, on any host (sGTM / first-party). */
+/**
+ * GA4 hit. The standard path ends in /g/collect on any host (sGTM / first-party). Server-side
+ * setups often rename the path, so a hit is also recognised by its parameters alone:
+ * v=2, a G-* measurement ID and a client ID.
+ */
 export function isGa4Request(req: Pick<RawRequest, "url">): boolean {
   const u = safeUrl(req.url);
-  if (!u || !u.pathname.endsWith("/g/collect")) return false;
-  const tid = u.searchParams.get("tid") ?? "";
-  return u.searchParams.get("v") === "2" && tid.startsWith("G-");
+  if (!u) return false;
+  const q = u.searchParams;
+  if (q.get("v") !== "2" || !(q.get("tid") ?? "").startsWith("G-")) return false;
+  return u.pathname.endsWith("/g/collect") || q.has("cid");
 }
 
 function num(v: string): number | string {
@@ -158,7 +163,7 @@ export const ga4: VendorMatcher = {
   id: "ga4",
   label: "Google Analytics 4",
   kind: "analytics",
-  urlHint: /\/g\/collect/,
+  urlHint: /\/g\/collect|[?&]tid=G-/,
   match: isGa4Request,
   parse: parseGa4,
   piiPolicy: "never",
