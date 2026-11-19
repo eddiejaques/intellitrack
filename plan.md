@@ -357,6 +357,8 @@ Patterns marked **†** are from memory. Confirm each against a live capture whe
 | Klaviyo | engagement | `a.klaviyo.com/api/track`, `/client/events` † | expected | `Viewed Product`, `Started Checkout` |
 | Adobe Analytics / AEP Edge | analytics | `*/b/ss/*`; `*/ee/*/v1/interact` † | never | XDM shape; `eVar`/`prop` mapping |
 
+**Status of vendor notes:** B1 (Google Ads) is implemented from Google's documented gtag conversion ping (`label`, `value`, `currency_code`, `oid`; enhanced-conversion identifiers are detected by what they contain, not by parameter name). Its tests use synthetic URLs. Before B1 is Done, replace them with real captured pings (direct, first-party `1p-conversion`, and an enhanced-conversions purchase) and confirm the parameter names.
+
 **Why `piiPolicy` matters for Braze and Salesforce:** these platforms are *meant* to receive identity such as an email or `external_id`. Flagging a plaintext email sent to them would be a false positive. For these vendors, the audit checks that identity is set at the right moment and stays stable, not that it's absent. Data is still redacted before it reaches the LLM. The LLM sees `[email:plaintext]`, and the vendor's policy tells it whether that's acceptable.
 
 ---

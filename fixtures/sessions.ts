@@ -89,3 +89,20 @@ export const ALL_STEPS = ["S1", "S2", "S3", "S4"];
 export const sessionWith = (markers: SessionMeta["markers"]): Pick<SessionMeta, "startedAt" | "endedAt" | "markers"> => ({
   startedAt: 1_000_000, endedAt: 1_030_000, markers,
 });
+
+/** A Google Ads conversion ping as the normalizer would emit it (synthetic, see googleAds.ts note). */
+export function adsConversion(t: number, params: NormalizedEvent["params"] = {}, over: Partial<NormalizedEvent> = {}): NormalizedEvent {
+  return ev(t, "conversion", {
+    vendor: "google_ads", property: "AW-123456789", consent: {}, user: {},
+    page: { path: "/thanks", step: "S4" },
+    params: { label: "AbCdEf_gh", value: 29.9, currency: "EUR", transaction_id: "T-1001", ...params },
+    ...over,
+  });
+}
+
+/** Clean e-commerce journey where the purchase is also reported to Google Ads. */
+export function ecommerceWithAds(): NormalizedEvent[] {
+  const evs = ecommerceClean();
+  evs.push(adsConversion(15.2));
+  return evs;
+}

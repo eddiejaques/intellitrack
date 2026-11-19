@@ -4,7 +4,7 @@ export type RawFinding = Omit<Finding, "id" | "source">;
 
 export const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
-export const CONVERSION_EVENTS = new Set(["purchase", "generate_lead", "sign_up", "refund"]);
+export const CONVERSION_EVENTS = new Set(["purchase", "generate_lead", "sign_up", "refund", "conversion"]);
 
 export const ids = (evs: NormalizedEvent[], cap = 20): string[] => evs.slice(0, cap).map((e) => e.id);
 

@@ -160,8 +160,8 @@ export function duplicateRule(events: NormalizedEvent[]): RawFinding[] {
   const conv = new Map<string, NormalizedEvent[]>();
   for (const e of sorted) {
     if (!CONVERSION_EVENTS.has(e.event)) continue;
-    const key = e.event === "purchase" && e.params.transaction_id !== undefined
-      ? `${e.vendor}|purchase|${e.params.transaction_id}`
+    const key = e.params.transaction_id !== undefined && (e.event === "purchase" || e.vendor === "google_ads")
+      ? `${e.vendor}|${e.event}|${e.params.label ?? ""}|${e.params.transaction_id}`
       : `${e.vendor}|${e.event}|${canonical(e)}`;
     conv.set(key, [...(conv.get(key) ?? []), e]);
   }
@@ -173,7 +173,7 @@ export function duplicateRule(events: NormalizedEvent[]): RawFinding[] {
     out.push({
       severity: name === "purchase" ? "critical" : "high", vendor: evs[0].vendor, category: "duplicate",
       title: `Duplicate ${name} conversion`,
-      detail: `${name} fired ${evs.length} times with identical ${name === "purchase" && evs[0].params.transaction_id !== undefined ? "transaction_id" : "parameters"}. Conversions and revenue are over-counted.`,
+      detail: `${name} fired ${evs.length} times with identical ${evs[0].params.transaction_id !== undefined && (name === "purchase" || evs[0].vendor === "google_ads") ? "transaction_id" : "parameters"}. Conversions and revenue are over-counted.`,
       evidence: ids(evs),
       recommendation: "Fire the conversion once per transaction: guard against page reloads and double-bound triggers.",
     });
