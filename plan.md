@@ -5,11 +5,11 @@ A Chrome extension that records the tracking tags fired during a user-driven jou
 - **Platform:** Chrome, Manifest V3. Edge, Brave, and Arc run the same build. Safari is a backlog item.
 - **No backend.** Users bring their own LLM: Claude, OpenAI, Gemini, or any OpenAI-compatible gateway. Calls go directly from the extension to the endpoint the user configures.
 - **Works on any site type:** the LLM looks at the site when you land on it and proposes the journeys and events to expect (§6).
-- **MVP = GA4 only**, built in 5 sub-tasks (§1). Everything that was cut is in a prioritized Kanban backlog (§9). Vendor integration notes for Salesforce, Braze, and others are in §10.
+- **MVP = GA4 only**, built in 7 sub-tasks (§1). Everything that was cut is in a prioritized Kanban backlog (§9). Vendor integration notes for Salesforce, Braze, and others are in §10.
 
 ---
 
-## 1. MVP: scope and 5 sub-tasks
+## 1. MVP: scope and 7 sub-tasks
 
 ### What the MVP does
 
@@ -20,7 +20,7 @@ A Chrome extension that records the tracking tags fired during a user-driven jou
    - content: *article → scroll → newsletter sign_up*
 
    You pick the journey you're about to take.
-3. You browse. Captured GA4 events tick off the checklist live.
+3. You browse. Captured GA4 events tick off the checklist live, and the toolbar extension icon badge always displays the running count of captured tags so you know right away if network requests are being noted.
 4. You press **Stop**, then preview the minimized, redacted JSON and confirm sending it.
 5. You get an audit report covering missing events, missing or wrong parameters, duplicates, PII leaks, and consent issues. You can export it as Markdown or JSON.
 
@@ -29,7 +29,7 @@ A Chrome extension that records the tracking tags fired during a user-driven jou
 | In the MVP | Cut and moved to the backlog (§9) |
 |---|---|
 | GA4, including server-side GTM / first-party endpoints | All other vendors |
-| Capture with `webRequest` | `dataLayer` observer |
+| Capture with `webRequest` + live toolbar icon badge count | `dataLayer` observer |
 | 4 LLM adapters: Anthropic, OpenAI, Gemini, OpenAI-compatible | — |
 | Planner with a manual **Re-plan** button | Automatic re-plan |
 | Pick or deselect journeys and steps from the plan | Custom user-defined expected events |
@@ -39,21 +39,24 @@ A Chrome extension that records the tracking tags fired during a user-driven jou
 | Unpacked or unlisted Web Store build, for pilot users | Licensing, €25 paywall, public listing |
 | Single tab | Multi-tab journeys |
 
-### The 5 sub-tasks
+### The 7 sub-tasks
 
-| # | Sub-task | Delivers | Done when | Depends on |
-|---|---|---|---|---|
-| **T0** | **Repo setup** | Git repo with origin `https://github.com/eddiejaques/intellitrack.git`, `main` branch, `.gitignore`, README, this plan committed. Workflow: one branch per sub-task or backlog item (`t1-capture`, `b1-google-ads`, ...), merged to `main` when its "Done when" passes. | `main` is pushed to origin and contains `plan.md` | — |
-| **T1** | **Skeleton + GA4 capture** | MV3 scaffold, `webRequest` listener with `requestBody`, GA4 matcher and parser (batched bodies, sGTM hosts), events saved to IndexedDB as they arrive, popup with Start/Stop, live count, and step markers, raw session viewer, the first recorded fixtures | Captured events match GA4 DebugView at ≥ 99% on 3 real sites (e-commerce, lead-gen, publisher), including a long checkout during which the service worker is suspended | — |
-| **T2** | **Minimize + rules + preview** | Noise and duplicate removal, PII redaction that keeps the value's shape, universal and plan-driven rules, e-commerce value check, preview of what will be sent, JSON export | The rules alone flag the seeded-fault fixtures correctly (using a hand-written plan). The preview contains no raw PII. | T1 |
-| **T3** | **LLM layer** | Options page (provider, base URL, model, key, call budget), 4 thin adapters, Test connection, JSON Schema validation with one retry, runtime host permission for custom base URLs | Test connection passes on all 4 providers. An invalid response triggers the retry, then a clean failure. | — (in parallel with T1/T2) |
-| **T4** | **Journey planner + live checklist** | Page-context extractor, `plan_v1` prompt, `journey_plan` schema, per-site consent prompt, journey picker, local live matching, Re-plan button, call-budget enforcement | The plan picks the right site type and sensible GA4 events for the e-commerce, lead-gen, and content fixtures on at least 3 of the 4 providers | T1, T3 |
-| **T5** | **Audit + report** | `audit_v1` prompt, evidence-ID check, report page (score, journey coverage, findings by severity, rule vs LLM source), Markdown export, eval script that runs every fixture against every provider | Seeded faults are found on every provider. No finding cites an event ID that isn't in the payload. | T2, T3, T4 |
+| # | Sub-task | Delivers | Done when | Depends on | Status |
+|---|---|---|---|---|---|
+| **T0** | **Repo setup** | Git repo with origin `https://github.com/eddiejaques/intellitrack.git`, `main` branch, `.gitignore`, README, this plan committed. Workflow: one branch per sub-task or backlog item (`t1-capture`, `b1-google-ads`, ...), merged to `main` when its "Done when" passes. | `main` is pushed to origin and contains `plan.md` | — | Repo initialized |
+| **T1** | **Skeleton + GA4 capture** | MV3 scaffold, `webRequest` listener with `requestBody`, GA4 matcher and parser (batched bodies, sGTM hosts), events saved to IndexedDB as they arrive, popup with Start/Stop, live count, and step markers, raw session viewer, the first recorded fixtures | Captured events match GA4 DebugView at ≥ 99% on 3 real sites (e-commerce, lead-gen, publisher), including a long checkout during which the service worker is suspended | — | Code complete (16 unit tests pass); real-site DebugView gate not yet run |
+| **T2** | **Minimize + rules + preview** | Noise and duplicate removal, PII redaction that keeps the value's shape, universal and plan-driven rules, e-commerce value check, preview of what will be sent, JSON export | The rules alone flag the seeded-fault fixtures correctly (using a hand-written plan). The preview contains no raw PII. | T1 | Code complete (synthetic fixtures; recorded real-site fixtures pending from T1 gate) |
+| **T3** | **LLM layer** | Options page (provider, base URL, model, key, call budget), 4 thin adapters, Test connection, JSON Schema validation with one retry, runtime host permission for custom base URLs | Test connection passes on all 4 providers. An invalid response triggers the retry, then a clean failure. | — (in parallel with T1/T2) | Code complete (all 4 adapters tested against mocked endpoints; live Test connection not yet run with real keys) |
+| **T4** | **Journey planner + live checklist** | Page-context extractor, `plan_v1` prompt, `journey_plan` schema, per-site consent prompt, journey picker, local live matching, Re-plan button, call-budget enforcement | The plan picks the right site type and sensible GA4 events for the e-commerce, lead-gen, and content fixtures on at least 3 of the 4 providers | T1, T3 | Code complete (unit-tested with mocked LLM); gate not run: needs live providers and real sites |
+| **T5** | **Audit + report** | `audit_v1` prompt, evidence-ID check, report page (score, journey coverage, findings by severity, rule vs LLM source), Markdown export, eval script that runs every fixture against every provider | Seeded faults are found on every provider. No finding cites an event ID that isn't in the payload. | T2, T3, T4 | Code complete (`npm run eval -- --mock` passes all gates against the offline oracle); gate not run: needs live providers |
+| **T6** | **Toolbar badge counter** | Live tag counter on the extension toolbar icon (`chrome.action.setBadgeText` / `setBadgeBackgroundColor`), scoped to the recorded tab, incrementing as normalized events are stored, persisting across service-worker restarts via `chrome.storage.session`, and resetting on new session or clear | Badge immediately reflects the exact count of captured tags during browsing, survives service-worker suspension, and stays blank/cleared on unrecorded tabs | T1 | Code complete (unit-tested); not yet checked in Chrome on a real tab |
 
 ```
 T1 ──► T2 ──────────┐
- │                  ▼
- └──► T4 ◄── T3 ──► T5
+ │                  ▼
+ ├──► T4 ◄── T3 ──► T5
+ │
+ └──► T6
 ```
 
 T2 on its own already gives a useful audit without an LLM. That makes a good fallback demo if the LLM work runs late.
@@ -64,31 +67,33 @@ T2 on its own already gives a useful audit without an LLM. That makes a good fal
 
 ```
 ┌──────────────────────────── Chrome ─────────────────────────────┐
-│  Content script: page-context extractor (title, meta, schema    │
-│   types, form field types, nav labels)                          │
-│                                                                  │
-│  Service worker                                                  │
-│   - chrome.webRequest observer (capture)                         │
-│   - vendor matchers → normalized events → IndexedDB              │
-│   - planner (LLM Phase A) + live plan matcher (local)            │
-│   - minimizer, redactor, rule engine                             │
-│   - LLM adapters → fetch() to the user's endpoint                │
-│  Popup:   Start/Stop, journey picker, live checklist, markers    │
-│  Options: LLM config, call budget, per-site consent              │
-│  Report:  preview-before-send, audit report, export              │
+│  Content script: page-context extractor (title, meta, schema    │
+│    types, form field types, nav labels)                         │
+│                                                                 │
+│  Service worker                                                 │
+│   - chrome.webRequest observer (capture)                        │
+│   - vendor matchers → normalized events → IndexedDB             │
+│   - chrome.action badge updater (live captured tag count)       │
+│   - planner (LLM Phase A) + live plan matcher (local)           │
+│   - minimizer, redactor, rule engine                            │
+│   - LLM adapters → fetch() to the user's endpoint               │
+│  Popup:   Start/Stop, journey picker, live checklist, markers   │
+│  Options: LLM config, call budget, per-site consent             │
+│  Report:  preview-before-send, audit report, export             │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Capture (T1)
+## 3. Capture & Toolbar Badge (T1, T6)
 
 - **`webRequest.onBeforeRequest`** with `requestBody`, non-blocking. It gives the full URL and POST body, including batched GA4 hits sent by `sendBeacon` (type `ping`). Non-blocking observation is fully supported in MV3.
 - **`onCompleted` / `onErrorOccurred`**, joined by `requestId`, give the status code and blocked hits (`net::ERR_BLOCKED_BY_CLIENT`).
 - **Listeners register at the top level** of the service worker so events wake it up. Every event is written to IndexedDB immediately. Session state lives in `chrome.storage.session`.
 - **`requestBody.raw`** can arrive as several byte chunks, which must be concatenated before decoding.
 - **Worker-originated hits** (`tabId = -1`) are attributed to the recorded tab by their initiator origin.
-- **Permissions:** `webRequest`, `storage`, `scripting`, `activeTab`, and `host_permissions: <all_urls>`. The last is needed because sGTM endpoints can be on any first-party domain.
+- **Toolbar icon badge (T6):** Every time normalized events are persisted for the active recording session, the service worker updates the extension toolbar icon badge (`chrome.action.setBadgeText({ tabId, text: String(count) })` and `chrome.action.setBadgeBackgroundColor`) with the running total of captured tags. The count is stored in `chrome.storage.session` so it recovers immediately if the MV3 service worker wakes from suspension, and is cleared when a new session starts or the recording is reset.
+- **Permissions:** `webRequest`, `storage`, `scripting`, `activeTab`, and `host_permissions: <all_urls>`. The last is needed because sGTM endpoints can be on any first-party domain. (`chrome.action` requires the `"action": {}` manifest key, no extra permission.)
 
 ---
 
@@ -288,7 +293,7 @@ These rules run locally with no LLM.
 | **Review / Eval** | Parser tests pass, and the eval script (T5) shows no regression on the existing fixtures. |
 | **Done** | Merged and released to pilot users. |
 
-The live board is [kanban.md](kanban.md). It covers both the MVP sub-tasks (T0–T5) and the backlog items.
+The MVP task statuses are tracked in §1. Create `kanban.md` when work resumes to track the MVP and backlog together.
 
 Always pull from the top of Ready. **Triggered** items skip the queue only when their trigger fires.
 
@@ -298,31 +303,32 @@ The order weighs audit value for pilot users, risk reduction, and readiness for 
 
 | Prio | ID | Item | Type | Size | Why at this position | Depends on |
 |---|---|---|---|---|---|---|
-| 1 | B1 | **Google Ads conversion + enhanced conversions** | vendor | M | The most-requested check after GA4. Unlocks the first cross-vendor check (GA4 purchase value vs Ads conversion value) and the hashing check. | MVP |
-| 2 | B2 | **`dataLayer` observer** (MAIN world) | capture | M | Finds "pushed but never sent", which is the most common cause of GTM bugs. Benefits every vendor. | MVP |
-| 3 | B3 | **Lead-gen rule pack** | rules | S | Lead-gen is the second most common site type. Cheap once the plan-driven rules exist. | MVP |
-| 4 | B4 | **Passphrase-encrypted key storage** | security | S | Required before any public listing. | MVP |
-| 5 | B5 | **Meta Pixel** | vendor | S | Widely used. `eventID` dedup with CAPI is a frequent fault. | MVP |
-| 6 | B6 | **Floodlight / CM360** | vendor | S | Enterprise and agency demand. Simple URL parsing. | MVP |
-| 7 | B7 | **Licensing + paywall + public Web Store listing** (€25, Lemon Squeezy/Paddle/Gumroad, offline Ed25519 key, free tier = GA4 + rule report) | business | M | Starts revenue once the vendor set justifies €25. | B4 |
-| 8 | B8 | **Braze Web SDK** | vendor | M | First engagement-platform vendor. Introduces `piiPolicy: expected` and identity-timing checks (`changeUser` at login or signup). | MVP |
-| 9 | B9 | **Salesforce Marketing Cloud Personalization** (Interaction Studio / Evergage) | vendor | M | Most common Salesforce web tag in e-commerce. | B8 (reuses identity checks) |
-| 10 | B10 | **Salesforce Data Cloud Web SDK** | vendor | M | Consent and identity event ordering. | B8 |
-| 11 | B11 | **Segment** | vendor | M | CDP. `identify` → `track` ordering; Segment Spec. | MVP |
-| 12 | B12 | **Mixpanel** | vendor | S | Product analytics. `distinct_id` stability. | MVP |
-| 13 | B13 | **Multi-tab journeys** (payment pop-ups, 3-D Secure) | capture | M | Checkouts that open a new tab currently lose their purchase events. | MVP |
-| 14 | B14 | **Content rule pack** | rules | S | Publisher sites. | MVP |
-| 15 | B15 | **Salesforce Account Engagement (Pardot)** | vendor | S | B2B lead-gen sites. | B8, B3 |
-| 16 | B16 | **Salesforce Marketing Cloud Engagement (Collect.js)** | vendor | S | Legacy, but still widespread. | B8 |
-| 17 | B17 | **HubSpot, Klaviyo** | vendor | M | Engagement platforms for SMB and DTC. | B8 |
-| 18 | B18 | **Amplitude, RudderStack** | vendor | M | Product analytics and CDP. | B11 |
-| 19 | B19 | **Auto re-plan suggestion** | planner | S | Nicer UX for long journeys across sections. | MVP |
-| 20 | B20 | **Custom user-defined expected events** | planner | M | For teams with their own tracking plan. | MVP |
-| 21 | B21 | **TikTok, LinkedIn Insight, Pinterest, Bing UET, Snap** | vendor | M | Long tail of ad pixels. One shared parser pattern. | B5 |
-| 22 | B22 | **Adobe Analytics / Web SDK (AEP Edge)** | vendor | L | Enterprise. Complex XDM / eVar mapping. | B2 |
-| 23 | B23 | **PDF export + session history** | UI | M | Agencies hand reports to clients. | MVP |
-| 24 | B24 | **Universal Analytics leftovers flag** | vendor | S | Quick win: flags dead UA tags still firing. Can be pulled in any time there's slack. | MVP |
-| 25 | B25 | **Safari port** (App Store, MAIN-world capture, Keychain, native messaging) | platform | L | Second platform. Lets Apple charge the €25 on the App Store instead of us running license keys. | B2, B7 |
+| 1 | B26 | **UI design pass** (shared design system: tokens, light/dark, type scale, icons; popup, settings, preview, report, raw viewer; toolbar icons) | UI | M | The MVP UI grew by task and is cluttered. Pilot users judge the product by what they see first, and designers are an early audience. | MVP |
+| 2 | B1 | **Google Ads conversion + enhanced conversions** | vendor | M | The most-requested check after GA4. Unlocks the first cross-vendor check (GA4 purchase value vs Ads conversion value) and the hashing check. | MVP |
+| 3 | B2 | **`dataLayer` observer** (MAIN world) | capture | M | Finds "pushed but never sent", which is the most common cause of GTM bugs. Benefits every vendor. | MVP |
+| 4 | B3 | **Lead-gen rule pack** | rules | S | Lead-gen is the second most common site type. Cheap once the plan-driven rules exist. | MVP |
+| 5 | B4 | **Passphrase-encrypted key storage** | security | S | Required before any public listing. | MVP |
+| 6 | B5 | **Meta Pixel** | vendor | S | Widely used. `eventID` dedup with CAPI is a frequent fault. | MVP |
+| 7 | B6 | **Floodlight / CM360** | vendor | S | Enterprise and agency demand. Simple URL parsing. | MVP |
+| 8 | B7 | **Licensing + paywall + public Web Store listing** (€25, Lemon Squeezy/Paddle/Gumroad, offline Ed25519 key, free tier = GA4 + rule report) | business | M | Starts revenue once the vendor set justifies €25. | B4 |
+| 9 | B8 | **Braze Web SDK** | vendor | M | First engagement-platform vendor. Introduces `piiPolicy: expected` and identity-timing checks (`changeUser` at login or signup). | MVP |
+| 10 | B9 | **Salesforce Marketing Cloud Personalization** (Interaction Studio / Evergage) | vendor | M | Most common Salesforce web tag in e-commerce. | B8 (reuses identity checks) |
+| 11 | B10 | **Salesforce Data Cloud Web SDK** | vendor | M | Consent and identity event ordering. | B8 |
+| 12 | B11 | **Segment** | vendor | M | CDP. `identify` → `track` ordering; Segment Spec. | MVP |
+| 13 | B12 | **Mixpanel** | vendor | S | Product analytics. `distinct_id` stability. | MVP |
+| 14 | B13 | **Multi-tab journeys** (payment pop-ups, 3-D Secure) | capture | M | Checkouts that open a new tab currently lose their purchase events. | MVP |
+| 15 | B14 | **Content rule pack** | rules | S | Publisher sites. | MVP |
+| 16 | B15 | **Salesforce Account Engagement (Pardot)** | vendor | S | B2B lead-gen sites. | B8, B3 |
+| 17 | B16 | **Salesforce Marketing Cloud Engagement (Collect.js)** | vendor | S | Legacy, but still widespread. | B8 |
+| 18 | B17 | **HubSpot, Klaviyo** | vendor | M | Engagement platforms for SMB and DTC. | B8 |
+| 19 | B18 | **Amplitude, RudderStack** | vendor | M | Product analytics and CDP. | B11 |
+| 20 | B19 | **Auto re-plan suggestion** | planner | S | Nicer UX for long journeys across sections. | MVP |
+| 21 | B20 | **Custom user-defined expected events** | planner | M | For teams with their own tracking plan. | MVP |
+| 22 | B21 | **TikTok, LinkedIn Insight, Pinterest, Bing UET, Snap** | vendor | M | Long tail of ad pixels. One shared parser pattern. | B5 |
+| 23 | B22 | **Adobe Analytics / Web SDK (AEP Edge)** | vendor | L | Enterprise. Complex XDM / eVar mapping. | B2 |
+| 24 | B23 | **PDF export + session history** | UI | M | Agencies hand reports to clients. | MVP |
+| 25 | B24 | **Universal Analytics leftovers flag** | vendor | S | Quick win: flags dead UA tags still firing. Can be pulled in any time there's slack. | MVP |
+| 26 | B25 | **Safari port** (App Store, MAIN-world capture, Keychain, native messaging) | platform | L | Second platform. Lets Apple charge the €25 on the App Store instead of us running license keys. | B2, B7 |
 | — | T-1 | **Move B2 into the MVP** | triggered | — | **Trigger:** T1's ≥ 99% capture gate fails. | — |
 | — | T-2 | **Reference specs in `shared/specs/`**, injected into prompts | triggered | M | **Trigger:** the T5 eval shows providers' plans disagree on the same fixture. | T5 |
 | — | T-3 | **Reprioritize B8–B10 against B1–B6** | triggered | — | **Trigger:** pilot users run Braze or Salesforce rather than Google Ads or Meta. | — |

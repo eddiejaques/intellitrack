@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>IntelliTrack preview</title>
+<link rel="stylesheet" href="ui.css">
+</head><body>
+<main class="page">
+  <div class="page-head"><svg class="logo" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#4f46e5"/><circle cx="14" cy="14" r="7.4" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="14" cy="14" r="2.9" fill="#fff"/></svg><div><h1>Preview &amp; rule audit</h1><p class="muted">Computed locally. The payload at the bottom is exactly what would be sent to your LLM.</p></div></div>
+
+  <section class="card stack" style="margin-bottom:8px">
+    <h2>Run the audit</h2>
+    <p id="dest" class="muted"></p>
+    <div id="privacy" class="note"></div>
+    <div class="row wrap">
+      <button id="send" class="btn primary">Confirm &amp; send to my LLM</button>
+      <button id="rules-only" class="btn secondary">Rules-only report <span class="muted">(nothing sent)</span></button>
+      <a href="options.html" target="_blank" class="btn ghost sm">LLM settings</a>
+      <span id="run-msg" class="muted"></span>
+    </div>
+  </section>
+
+  <section><h2>Findings <span id="fcount" class="muted"></span></h2><div id="findings" class="cards" style="margin-top:10px"></div></section>
+
+  <section><h2>Journey coverage</h2><div class="card table-card" style="margin-top:10px"><table><thead><tr><th>Step</th><th>Expected</th><th>Observed</th><th>Status</th></tr></thead><tbody id="coverage"></tbody></table></div></section>
+
+  <section>
+    <details class="disclosure"><summary>Journey plan used as the yardstick (editable JSON)</summary>
+      <textarea id="plan" rows="10" placeholder='{"site_type":"ecommerce","journeys":[…]}' spellcheck="false"></textarea>
+      <div class="row" style="margin-top:8px"><button id="apply" class="btn secondary sm">Apply plan</button><span id="plan-msg" class="muted"></span></div>
+    </details>
+  </section>
+
+  <section>
+    <details class="disclosure"><summary>Payload <span id="psize" class="muted"></span></summary>
+      <div class="row" style="margin-bottom:8px"><button id="export" class="btn secondary sm">Export JSON</button></div>
+      <pre id="payload" class="json"></pre>
+    </details>
+  </section>
+</main>
+<script src="preview.js"></script>
+</body></html>

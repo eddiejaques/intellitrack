@@ -1,7 +1,7 @@
-.DS_Store
-*.textClipping
-downloads/
 node_modules/
-providers.json
+dist/
+.DS_Store
+*.log
 .env
-.env.*
+.eval/
+eval.config.json
