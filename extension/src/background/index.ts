@@ -13,14 +13,14 @@ import {
   stopSession,
   updateSession,
 } from "./capture";
-import { getEvents, getReport, putReport } from "./store";
+import { deleteSession, getEvents, getReport, getRequests, getSession, listReports, listSessions, putReport } from "./store";
 import { createProvider, testConnection } from "../llm";
 import { loadConfig } from "../llm/config";
 import { getConsent, setConsent } from "../llm/consent";
 import { extractPageContext } from "../content/pageContext";
 import { runAudit } from "./audit";
 import { applyTemplate, runPlanner, type PlannerDeps } from "./planner";
-import type { Message, RawRequest } from "../shared/types";
+import type { Message, RawRequest, SessionSummary } from "../shared/types";
 
 const plannerDeps: PlannerDeps = {
   loadSession,
@@ -48,7 +48,7 @@ chrome.runtime.onStartup.addListener(() => void restoreBadge());
 // Listeners must be registered at the top level so events wake the service worker.
 chrome.webRequest.onBeforeRequest.addListener(
   (d) => {
-    if (!mightBeTracking(d.url)) return;
+    if (!mightBeTracking(d.url, d.type)) return;
     const req: RawRequest = {
       requestId: d.requestId,
       url: d.url,
@@ -67,14 +67,14 @@ chrome.webRequest.onBeforeRequest.addListener(
 
 chrome.webRequest.onCompleted.addListener(
   (d) => {
-    if (mightBeTracking(d.url)) void handleCompleted(d.requestId, d.tabId, d.statusCode, d.initiator);
+    if (mightBeTracking(d.url, d.type)) void handleCompleted(d.requestId, d.tabId, d.statusCode, d.initiator);
   },
   { urls: ["<all_urls>"] },
 );
 
 chrome.webRequest.onErrorOccurred.addListener(
   (d) => {
-    if (mightBeTracking(d.url)) void handleError(d.requestId, d.tabId, d.error, d.initiator);
+    if (mightBeTracking(d.url, d.type)) void handleError(d.requestId, d.tabId, d.error, d.initiator);
   },
   { urls: ["<all_urls>"] },
 );
@@ -105,18 +105,34 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
       case "setConsent":
         return setConsent(msg.origin, msg.value);
       case "audit": {
-        const s = await loadSession();
-        if (!s) throw new Error("No session");
-        const report = await runAudit({ loadConfig, provider: (c) => createProvider(c), now: () => Date.now() }, s.id, msg.payload, msg.useLLM);
+        const report = await runAudit({ loadConfig, provider: (c) => createProvider(c), now: () => Date.now() }, msg.sessionId, msg.payload, msg.useLLM, msg.diagnostics);
         await putReport(report);
         return report;
       }
       case "getReport":
         return getReport(msg.sessionId);
+      case "getSession":
+        return getSession(msg.sessionId);
+      case "listSessions": {
+        const [sessions, reports] = await Promise.all([listSessions(), listReports()]);
+        const byId = new Map(reports.map((r) => [r.session_id, r]));
+        return sessions.map((session): SessionSummary => {
+          const r = byId.get(session.id);
+          return { session, report: r && { score: r.score, headline: r.headline, created_at: r.created_at, inconclusive: r.inconclusive, llm: r.llm.status } };
+        });
+      }
+      case "deleteSession": {
+        const cur = await loadSession();
+        if (cur?.id === msg.sessionId) await clearSession();
+        await deleteSession(msg.sessionId);
+        return true;
+      }
       case "getState":
         return loadSession();
       case "getEvents":
         return getEvents(msg.sessionId);
+      case "getRequests":
+        return getRequests(msg.sessionId);
       case "testConnection":
         return testConnection(msg.config);
     }

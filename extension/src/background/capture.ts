@@ -1,7 +1,8 @@
 import { vendors } from "../vendors";
+import { looksLikeTag } from "../vendors/tagHint";
 import type { Marker, RawRequest, SessionMeta } from "../shared/types";
 import { applyBadge, clearBadge } from "./badge";
-import { putEvents, putSession, updateTransport, type StoredEvent } from "./store";
+import { patchRequest, putEvents, putRequest, putSession, updateTransport, type StoredEvent } from "./store";
 
 const KEY = "session";
 
@@ -63,6 +64,8 @@ export function startSession(tabId: number): Promise<SessionMeta> {
     if (prev) await clearBadge(prev.tabId);
     const tab = await chrome.tabs.get(tabId);
     const o = originOf(tab.url);
+    let host = "";
+    try { host = new URL(tab.url ?? "").host; } catch { /* about:blank etc. */ }
     const s: SessionMeta = {
       id: `ses_${Date.now().toString(36)}`,
       tabId,
@@ -74,6 +77,7 @@ export function startSession(tabId: number): Promise<SessionMeta> {
       nextReq: 1,
       markers: [],
       plan_calls: 0,
+      site: o ? { origin: o, host, title: tab.title?.slice(0, 120), url: tab.url?.split("#")[0].slice(0, 300) } : undefined,
     };
     await saveSession(s);
     return s;
@@ -134,39 +138,54 @@ function belongsToSession(s: SessionMeta, req: Pick<RawRequest, "tabId" | "initi
 }
 
 /** Quick pre-filter so we don't touch the session store for unrelated traffic. */
-export function mightBeTracking(url: string): boolean {
-  return vendors.some((v) => v.urlHint.test(url));
+export function mightBeTracking(url: string, type?: string): boolean {
+  return vendors.some((v) => v.urlHint.test(url)) || looksLikeTag(url, type);
 }
+
+const MAX_STORED_REQUESTS = 3000;
+const BODY_LIMIT = 4000;
+const hostOf = (url: string) => { try { return new URL(url).host; } catch { return ""; } };
 
 export function handleRequest(req: RawRequest): Promise<void> {
   return serialize(async () => {
     const s = await loadSession();
     if (!s || s.status !== "recording" || !belongsToSession(s, req)) return;
     const matcher = vendors.find((v) => v.match(req));
-    if (!matcher) return;
-    const parsed = matcher.parse(req);
-    if (parsed.length === 0) return;
+    if (!matcher && !looksLikeTag(req.url, req.type)) return;
 
-    const t = (req.timeStamp - s.startedAt) / 1000;
-    const rawRef = `req_${String(s.nextReq++).padStart(4, "0")}`;
+    const t = Math.max(0, (req.timeStamp - s.startedAt) / 1000);
     const step = s.markers.length ? s.markers[s.markers.length - 1].id : undefined;
-    const rows: StoredEvent[] = parsed.map((p) => {
-      const id = `evt_${String(s.nextEvt++).padStart(4, "0")}`;
-      return {
-        ...p,
-        id,
-        t: Math.max(0, t),
-        page: { ...p.page, step },
-        raw_ref: rawRef,
-        sessionId: s.id,
-        requestId: req.requestId,
-        key: `${s.id}/${id}`,
-      };
-    });
-    s.eventCount += rows.length;
+    let rows: StoredEvent[] = [];
+
+    if (matcher) {
+      const parsed = matcher.parse(req);
+      if (parsed.length > 0) {
+        const rawRef = `req_${String(s.nextReq++).padStart(4, "0")}`;
+        rows = parsed.map((p) => {
+          const id = `evt_${String(s.nextEvt++).padStart(4, "0")}`;
+          return { ...p, id, t, page: { ...p.page, step }, raw_ref: rawRef, sessionId: s.id, requestId: req.requestId, key: `${s.id}/${id}` };
+        });
+        s.eventCount += rows.length;
+      }
+    }
+
+    // Every tag-like request is logged, recognised or not, so raw tags can always be inspected.
+    const logIt = (s.request_count ?? 0) < MAX_STORED_REQUESTS;
+    if (logIt) {
+      s.request_count = (s.request_count ?? 0) + 1;
+      if (!matcher) s.unrecognized_count = (s.unrecognized_count ?? 0) + 1;
+    }
     // Counters first: if the worker dies between the writes, IDs are skipped, never reused.
     await saveSession(s);
-    await putEvents(rows);
+    if (rows.length) await putEvents(rows);
+    if (logIt) {
+      await putRequest({
+        key: `${s.id}/${req.requestId}`, sessionId: s.id, requestId: req.requestId, t,
+        url: req.url.slice(0, BODY_LIMIT), host: hostOf(req.url), method: req.method, type: req.type,
+        vendor: matcher?.id ?? "unrecognized", events: rows.length, step,
+        body: req.body ? req.body.slice(0, BODY_LIMIT) : undefined,
+      });
+    }
   });
 }
 
@@ -175,6 +194,7 @@ export function handleCompleted(requestId: string, tabId: number, status: number
     const s = await loadSession();
     if (!s || !belongsToSession(s, { tabId, initiator })) return;
     await updateTransport(s.id, requestId, { status });
+    await patchRequest(s.id, requestId, { status });
   });
 }
 
@@ -183,5 +203,6 @@ export function handleError(requestId: string, tabId: number, error: string, ini
     const s = await loadSession();
     if (!s || !belongsToSession(s, { tabId, initiator })) return;
     await updateTransport(s.id, requestId, { error });
+    await patchRequest(s.id, requestId, { error });
   });
 }

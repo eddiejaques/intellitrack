@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>IntelliTrack sessions</title>
+<link rel="stylesheet" href="ui.css">
+<style>
+  .group { margin-top: 28px; }
+  .group-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .group-head .site { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+  .sess { display: grid; grid-template-columns: 10px 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .sess + .sess { margin-top: 8px; }
+  .sess .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); }
+  .sess .dot.rec { background: var(--sev-critical); } .sess .dot.done { background: var(--ok); }
+  .sess .when { font-weight: 600; }
+  .sess .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .sess .side { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .score { min-width: 44px; text-align: center; font-weight: 650; font-size: 15px; padding: 4px 8px; border-radius: 8px; }
+  .score.good { background: var(--ok-soft); color: var(--ok); }
+  .score.mid { background: var(--warn-soft); color: var(--sev-medium); }
+  .score.bad { background: color-mix(in srgb, var(--sev-critical) 12%, var(--surface)); color: var(--sev-critical); }
+  .score.none { background: var(--surface-2); color: var(--muted); font-weight: 500; font-size: 12px; }
+  @media (max-width: 640px) { .sess { grid-template-columns: 10px 1fr; } .sess .side { grid-column: 1 / -1; justify-content: flex-start; } }
+</style></head>
+<body>
+<main class="page">
+  <div class="page-head"><svg class="logo" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#4f46e5"/><circle cx="14" cy="14" r="7.4" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="14" cy="14" r="2.9" fill="#fff"/></svg><div><h1>Sessions</h1><p class="muted">Every recording, grouped by site. Each one has its own tags, plan and report.</p></div></div>
+  <input id="filter" type="text" placeholder="Filter by site…" style="max-width:320px">
+  <div id="list"></div>
+</main>
+<script src="sessions.js"></script>
+</body></html>

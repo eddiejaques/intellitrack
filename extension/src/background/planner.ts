@@ -89,7 +89,8 @@ export async function runPlanner(deps: PlannerDeps, opts: { confirmed?: boolean 
     const { plan: value } = await requestPlan(deps.provider(cfg), context);
     await deps.updateSession((sess) => {
       sess.plan = value;
-      sess.selection = { journeys: value.journeys.map((j) => j.id), excluded_steps: [] };
+      // Audit the journey you are about to take, not every journey the model could imagine.
+      sess.selection = { journeys: value.journeys.slice(0, 1).map((j) => j.id), excluded_steps: [] };
       sess.plan_meta = { source: "llm", provider: cfg.provider, model: cfg.model, prompt_version: PLAN_PROMPT_VERSION, at: deps.now() };
     });
     return { status: "ok", plan: value };

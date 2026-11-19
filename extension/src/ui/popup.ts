@@ -1,5 +1,6 @@
 import { liveChecklist } from "../planner/plan";
 import { loadConfig, validateConfig } from "../llm/config";
+import { pageUrl } from "./session";
 import type { PlanResult } from "../background/planner";
 import type { StoredEvent } from "../background/store";
 import type { CoverageEntry, Message, SessionMeta } from "../shared/types";
@@ -155,7 +156,6 @@ function render() {
   const t = $<HTMLButtonElement>("toggle");
   t.textContent = rec ? "Stop recording" : "Start recording";
   t.className = `btn block ${rec ? "secondary" : "primary"}`;
-  $<HTMLButtonElement>("view").disabled = !session;
   $<HTMLButtonElement>("preview").disabled = !session;
   $("clear").classList.toggle("hide", !(session && !rec));
   // free-text markers only when there is no plan to mark steps from
@@ -199,6 +199,7 @@ $("toggle").addEventListener("click", async () => {
   }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id === undefined) return;
+  void openPanel(tab.windowId); // needs the click's user gesture, so before any slow await
   planUi = undefined;
   await send({ type: "start", tabId: tab.id });
   await refresh();
@@ -210,10 +211,18 @@ $("marker").addEventListener("click", async () => {
   input.value = "";
   await refresh();
 });
+/** The popup closes as soon as you click the page; the side panel stays open and updates live. */
+async function openPanel(windowId?: number) {
+  try {
+    const id = windowId ?? (await chrome.windows.getCurrent()).id;
+    if (id !== undefined) await chrome.sidePanel.open({ windowId: id });
+  } catch { /* side panel unavailable: the session log page still works */ }
+}
+$("panel").addEventListener("click", () => void openPanel());
 $("settings").addEventListener("click", openSettings);
 $("clear").addEventListener("click", async () => { await send({ type: "clear" }); planUi = undefined; await refresh(); });
-$("view").addEventListener("click", () => void chrome.tabs.create({ url: chrome.runtime.getURL("viewer.html") }));
-$("preview").addEventListener("click", () => void chrome.tabs.create({ url: chrome.runtime.getURL("preview.html") }));
+$("history").addEventListener("click", () => void chrome.tabs.create({ url: chrome.runtime.getURL("sessions.html") }));
+$("preview").addEventListener("click", () => void chrome.tabs.create({ url: pageUrl("preview.html", session?.id) }));
 
 // live count + live checklist: session state is mirrored in storage.session on every captured batch
 chrome.storage.session.onChanged.addListener((c) => { if (c.session) void refresh(); });

@@ -1,8 +1,9 @@
 import { buildPayload, findRawPii } from "../minimize";
 import { loadConfig, validateConfig } from "../llm/config";
 import { sessionPlan } from "../planner/plan";
+import { fmtDuration, fmtWhen, pageUrl, resolveSession, siteLabel } from "./session";
 import type { StoredEvent } from "../background/store";
-import type { AuditReport, JourneyPlan, Message, Payload, SessionMeta } from "../shared/types";
+import type { AuditReport, JourneyPlan, Message, Payload, RequestRow, SessionMeta } from "../shared/types";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
@@ -10,6 +11,7 @@ const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
 let session: SessionMeta | undefined;
 let events: StoredEvent[] = [];
 let payload: Payload | undefined;
+let requests: RequestRow[] = [];
 
 function el(tag: string, cls = "", ...kids: (string | HTMLElement)[]): HTMLElement {
   const e = document.createElement(tag);
@@ -51,13 +53,16 @@ function render(plan?: JourneyPlan) {
       : [el("tr", "", el("td", "muted", "No plan applied yet."))]),
   );
   const leaks = findRawPii(payload);
+  const nothing = payload.stats.raw_events === 0;
   const note = $("privacy");
-  note.className = `note ${leaks.length ? "err" : "ok"}`;
-  note.textContent = leaks.length ? `Possible raw personal data in the payload: ${leaks.join("; ")}` : "Privacy check passed: no raw personal data in the payload.";
+  note.className = `note ${nothing ? "warn" : leaks.length ? "err" : "ok"}`;
+  note.textContent = nothing
+    ? `No events were captured in this session, so there is nothing to audit. ${requests.length ? `${requests.length} tag request(s) were logged (${requests.filter((r) => r.vendor === "unrecognized").length} not parsed): open the session log to inspect them.` : "No tag requests were logged either: check cookie consent and ad blockers."}`
+    : leaks.length ? `Possible raw personal data in the payload: ${leaks.join("; ")}` : "Privacy check passed: no raw personal data in the payload.";
   const json = JSON.stringify(payload, null, 2);
   $("payload").textContent = json;
   $("psize").textContent = `· ${(json.length / 1024).toFixed(1)} KB, ~${Math.round(json.length / 4)} tokens`;
-  $<HTMLButtonElement>("send").disabled = leaks.length > 0 || !configOk;
+  $<HTMLButtonElement>("send").disabled = leaks.length > 0 || !configOk || nothing;
 }
 
 let configOk = false;
@@ -71,7 +76,7 @@ async function showDestination() {
     }
   } catch { /* storage unavailable */ }
   $("dest").textContent = text;
-  if (payload) $<HTMLButtonElement>("send").disabled = findRawPii(payload).length > 0 || !configOk;
+  if (payload) $<HTMLButtonElement>("send").disabled = findRawPii(payload).length > 0 || !configOk || payload.stats.raw_events === 0;
 }
 
 async function run(useLLM: boolean) {
@@ -81,9 +86,10 @@ async function run(useLLM: boolean) {
   $("run-msg").textContent = useLLM ? "Waiting for your LLM…" : "Building report…";
   try {
     // The payload object that was previewed is the one sent: nothing is rebuilt in between.
-    const r = (await chrome.runtime.sendMessage({ type: "audit", payload, useLLM } satisfies Message)) as AuditReport | { error: string };
+    const diagnostics = { tag_requests: requests.length, not_parsed: requests.filter((r) => r.vendor === "unrecognized").length, duration_s: payload.session.duration_s };
+    const r = (await chrome.runtime.sendMessage({ type: "audit", sessionId: session!.id, payload, useLLM, diagnostics } satisfies Message)) as AuditReport | { error: string };
     if ("error" in r) throw new Error(r.error);
-    location.href = chrome.runtime.getURL("report.html");
+    location.href = pageUrl("report.html", session!.id);
   } catch (e) {
     $("run-msg").textContent = `Failed: ${e instanceof Error ? e.message : String(e)}`;
     $<HTMLButtonElement>("rules-only").disabled = false;
@@ -94,12 +100,17 @@ $("send").addEventListener("click", () => void run(true));
 $("rules-only").addEventListener("click", () => void run(false));
 
 async function main() {
-  session = await send<SessionMeta | undefined>({ type: "getState" });
+  session = await resolveSession();
   if (!session) {
     $("payload").textContent = "No session recorded yet.";
     return;
   }
-  events = await send<StoredEvent[]>({ type: "getEvents", sessionId: session.id });
+  [events, requests] = await Promise.all([
+    send<StoredEvent[]>({ type: "getEvents", sessionId: session.id }),
+    send<RequestRow[]>({ type: "getRequests", sessionId: session.id }),
+  ]);
+  $("who").replaceChildren(`${siteLabel(session)} · ${fmtWhen(session.startedAt)} · ${fmtDuration(session)}`);
+  ($("back") as HTMLAnchorElement).href = pageUrl("sessions.html");
   const plan = sessionPlan(session);
   if (plan) $<HTMLTextAreaElement>("plan").value = JSON.stringify(plan, null, 2);
   render(plan);
