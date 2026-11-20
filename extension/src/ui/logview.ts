@@ -4,6 +4,7 @@ import { fmtDuration, fmtWhen, guardWorker, resolveSession, siteLabel } from "./
 import { saveVendors, vendorPicker } from "./vendorPicker";
 import { selectedEventCount, sessionVendors, silentGa4, vendorLabel } from "../shared/vendors";
 import { guessVendor } from "../vendors/tagHint";
+import { isGa4EventPush, pushLabel, sentStatus, type DataLayerRow } from "../shared/datalayer";
 
 const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
 
@@ -86,6 +87,22 @@ function eventRow(e: StoredEvent): HTMLElement[] {
     h("div", "muted", `consent ${JSON.stringify(e.consent)} · client ${e.user.client_id ?? "–"}`)));
 }
 
+function pushRow(p: DataLayerRow, verdict: "sent" | "not_sent" | undefined): HTMLElement[] {
+  const what = p.kind === "gtag" ? `gtag ${p.command}` : p.layer === "dataLayer" ? "push" : `${p.layer}.push`;
+  const row = h("tr", "",
+    h("td", "mono muted nowrap", fmtT(p.t)),
+    h("td", "", h("div", "row wrap", h("strong", "", pushLabel(p)), p.step ? chip(p.step) : h("span")),
+      h("div", "row wrap", chip(what, "mono"), p.before_recording ? chip("before recording", "no_data") : p.replayed ? chip("already in dataLayer", "no_data") : h("span"), h("span", "muted mono path", p.path ?? ""))),
+    h("td", "", verdict === "sent" ? chip("sent", "matched") : verdict === "not_sent" ? chip("not sent", "missing") : h("span", "muted", "–")));
+  row.dataset.push = verdict ?? "";
+  return expandable(row, () => h("div", "stack",
+    h("div", "muted", `${p.id} · ${verdict === "not_sent" ? "no GA4 hit with this event name came from this page load"
+      : verdict === "sent" ? "a GA4 hit with this event name came from this page load"
+      : p.before_recording ? "pushed before recording started, so its GA4 hit (if any) was not captured: reload the page to check it"
+      : "not a GA4 event, so it is not matched"}`),
+    h("pre", "json", JSON.stringify(p.payload, null, 2))));
+}
+
 export interface LogViewOptions {
   /** full-page viewer shows an export button */
   exportable?: boolean;
@@ -94,12 +111,13 @@ export interface LogViewOptions {
 }
 
 export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
-  let tab: "tags" | "events" = "tags";
+  let tab: "tags" | "events" | "pushes" = "tags";
   let onlyUnparsed = false;
   let filter = "";
   let session: SessionMeta | undefined;
   let events: StoredEvent[] = [];
   let requests: RequestRow[] = [];
+  let pushes: DataLayerRow[] = [];
   let timer: number | undefined;
 
   const summary = h("div", "row wrap");
@@ -121,11 +139,12 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
   async function load() {
     session = await resolveSession();
     if (session) {
-      [events, requests] = await Promise.all([
+      [events, requests, pushes] = await Promise.all([
         send<StoredEvent[]>({ type: "getEvents", sessionId: session.id }),
         send<RequestRow[]>({ type: "getRequests", sessionId: session.id }),
+        send<DataLayerRow[]>({ type: "getPushes", sessionId: session.id }).then((r) => (Array.isArray(r) ? r : [])),
       ]);
-    } else { events = []; requests = []; }
+    } else { events = []; requests = []; pushes = []; }
     paint();
     // keep polling only while a recording is running
     window.clearTimeout(timer);
@@ -165,12 +184,16 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
       }, "Audit"));
     } else pickers.replaceChildren();
 
-    const mk = (id: "tags" | "events", label: string) => {
+    const mk = (id: "tags" | "events" | "pushes", label: string) => {
       const b = h("button", `seg-btn ${tab === id ? "on" : ""}`.trim(), label);
       b.addEventListener("click", () => { tab = id; paint(); });
       return b;
     };
-    tabs.replaceChildren(mk("tags", `Tags · ${requests.length}`), mk("events", `Events · ${session ? selectedEventCount(session) : 0}`));
+    const verdicts = sentStatus(pushes, events);
+    const notSent = [...verdicts.values()].filter((v) => v === "not_sent").length;
+    tabs.replaceChildren(mk("tags", `Tags · ${requests.length}`), mk("events", `Events · ${session ? selectedEventCount(session) : 0}`),
+      mk("pushes", `Data layer · ${pushes.length}${notSent ? ` · ${notSent} not sent` : ""}`));
+    tabs.lastElementChild!.id = "tab-pushes";
     unparsedBox.parentElement!.classList.toggle("hide", tab !== "tags");
 
     const match = (...parts: (string | undefined)[]) => !filter || parts.some((p) => (p ?? "").toLowerCase().includes(filter));
@@ -180,6 +203,13 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
       body.replaceChildren(rows.length
         ? h("table", "", h("thead", "", h("tr", "", ...["Time", "Request", "Status"].map((t) => h("th", "", t)))), h("tbody", "", ...rows.flatMap((r) => tagRow(r, sel))))
         : empty(rec, requests.length > 0));
+    } else if (tab === "pushes") {
+      const rows = pushes.filter((p) => match(pushLabel(p), p.command, p.layer, p.path, isGa4EventPush(p) ? (verdicts.get(p.key) === "sent" ? "sent" : "not sent") : ""));
+      body.replaceChildren(rows.length
+        ? h("table", "", h("thead", "", h("tr", "", ...["Time", "Pushed", "GA4"].map((t) => h("th", "", t)))), h("tbody", "", ...rows.flatMap((p) => pushRow(p, verdicts.get(p.key)))))
+        : pushes.length ? empty(rec, true) : h("div", "empty", rec
+          ? "No dataLayer pushes yet. Pages without Google Tag Manager or gtag.js may not have a dataLayer."
+          : "No dataLayer pushes were recorded in this session."));
     } else {
       const sel = session ? sessionVendors(session) : [];
       const rows = events.filter((e) => sel.includes(e.vendor) && match(e.event, e.vendor, e.property, e.page.path));
@@ -192,7 +222,7 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
       b.id = "export-log";
       b.addEventListener("click", () => {
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(new Blob([JSON.stringify({ session, events, requests }, null, 2)], { type: "application/json" }));
+        a.href = URL.createObjectURL(new Blob([JSON.stringify({ session, events, requests, pushes }, null, 2)], { type: "application/json" }));
         a.download = `${session?.id ?? "session"}.json`;
         a.click();
       });

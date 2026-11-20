@@ -42,7 +42,35 @@ try {
   check(names.includes("ga4:view_cart"), "gtag.js GA4 view_cart is captured", true);
   const rows = await b.msg({ type: "getRequests", sessionId: s1.id });
   check(rows.some((r) => r.vendor === "unrecognized"), "unparsed tag-like requests are logged");
+  let pushes = await b.msg({ type: "getPushes", sessionId: s1.id });
+  check(pushes.some((p) => p.command === "config" && p.name === "G-TEST123456"), "gtag config push on the cart page is recorded");
+  const cartDoc = pushes.find((p) => p.name === "view_cart")?.documentId;
+  check(!!cartDoc && events.some((e) => e.event === "view_cart" && e.documentId === cartDoc), "pushed view_cart and its GA4 hit share the page load (sent)", true);
+
+  // 1b. dataLayer: a page pushes events that nothing sends; they show as "not sent"
+  await b.goto("http://localhost:8123/datalayer.html", 2500);
+  pushes = await b.msg({ type: "getPushes", sessionId: s1.id });
+  const never = pushes.find((p) => p.name === "never_sent_test");
+  console.log(`dataLayer pushes: ${pushes.map((p) => `${p.command}:${p.name ?? "-"}`).join(", ")}`);
+  check(!!never, "a push to a dataLayer created after page start is recorded");
+  check(pushes.some((p) => p.kind === "gtag" && p.command === "event" && p.name === "generate_lead"), "gtag('event', …) pushed as arguments is recorded");
+  check(!!never && never.payload.user_email === "[email:plaintext]" && !JSON.stringify(pushes).includes("jane.doe@example.com"), "pushed email is redacted before storage");
+  check(JSON.stringify(await b.evalPage("[window.__ret1, window.__ret2]")) === "[1,3]", "dataLayer.push still returns the array length");
+  await b.extGoto(`viewer.html?session=${s1.id}`);
+  await b.ext(`document.getElementById("tab-pushes").click()`);
+  await sleep(300);
+  const verdict = await b.ext(`[...document.querySelectorAll("tr")].find((r) => r.textContent.includes("never_sent_test"))?.dataset.push ?? "missing row"`);
+  const label = await b.ext(`[...document.querySelectorAll("tr")].find((r) => r.textContent.includes("never_sent_test"))?.lastElementChild.textContent ?? ""`);
+  check(verdict === "not_sent" && label === "not sent", `session log shows never_sent_test as "not sent" (got ${verdict} / ${label})`);
+  await b.extGoto("options.html");
+
+  // 1c. a tab that is not recorded never gets the observer, even while a recording runs
+  const other = await b.otherTab("http://localhost:8123/datalayer.html", 1500);
+  check(await other("window.__intellitrack_dl === undefined && !Object.getOwnPropertyDescriptor(window.dataLayer, 'push')"), "unrecorded tab during a recording: dataLayer.push is not hooked");
+  check(await b.evalPage("window.__intellitrack_dl !== undefined"), "recorded tab: dataLayer.push is hooked");
   await b.msg({ type: "stop" });
+  await b.goto("http://localhost:8123/datalayer.html", 1500);
+  check(await b.evalPage("window.__intellitrack_dl === undefined"), "recorded tab after Stop: a new page load is not hooked");
 
   // 2. a product opened in a new tab from the recorded tab is followed
   await b.goto("http://localhost:8123/home.html", 1500);
@@ -52,6 +80,8 @@ try {
   await sleep(6000);
   events = await b.msg({ type: "getEvents", sessionId: s2.id });
   check(events.some((e) => e.event === "view_item"), "events from a followed new tab are captured", true);
+  pushes = await b.msg({ type: "getPushes", sessionId: s2.id });
+  check(pushes.some((p) => p.name === "view_item" && p.tabId !== tab), "dataLayer pushes from a followed new tab are recorded");
   await b.msg({ type: "stop" });
 
   // 3. sessions stay separate
