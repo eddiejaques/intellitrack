@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error plain .mjs module without types
 import * as lib from "../scripts/kanban-lib.mjs";
 
-const { checkMove, formatComment, hasCriteria, itemToCard, legacyCards, newCardBody, nextCard, normEntry, parseComment, parseTaskFile, parseTitle } = lib;
+const { checkMove, criteria, formatComment, hasCriteria, isApproval, itemToCard, legacyCards, newCardBody, nextCard, normEntry, parseComment, parseTaskFile, parseTitle, pendingAction, tickCriterion } = lib;
 
 /** A project item as the GraphQL query in gh-board.mjs returns it. */
 function item(title: string, f: { Status?: string; Prio?: number; Size?: string; Branch?: string } = {}, extra: Record<string, unknown> = {}) {
@@ -128,5 +128,67 @@ describe("migration from the old file board", () => {
     expect(by.B2).toMatchObject({ title: "dataLayer observer (MAIN world)", branch: "b2-datalayer", note: "long note", status: "review" });
     expect(by.B2.body).toContain("- [ ] wraps push");
     expect(by["T-1"]).toMatchObject({ type: "triggered", prio: 1000 });
+  });
+});
+
+describe("signals from the PM's comments", () => {
+  const OWNER = "board-owner";
+  const at = (n: number) => `2026-11-20T10:${String(n).padStart(2, "0")}:00Z`;
+  const cm = (login: string, body: string, n: number, on = "issue") => ({ login, body, createdAt: at(n), on });
+  const card = (status: string, activity: unknown[]) => ({ id: "B2", status, prio: 5, activity });
+
+  it("recognises approvals and rejects negations", () => {
+    for (const t of ["I have reviewed , lets deploy", "Reviewed, let's deploy", "ship it", "LGTM", "approved", "please merge", "**[approve]**\n\nok"]) expect(isApproval(t), t).toBe(true);
+    for (const t of ["please don't deploy yet", "do not merge", "not ready to merge", "wait before you deploy", "not approved", "rename the tab", "deployment docs are wrong"]) expect(isApproval(t), t).toBe(false);
+  });
+
+  it("only owner comments after the agent's latest comment count", () => {
+    const agent = cm(OWNER, "**[agent · review]**\n\nPR #50 is ready", 1);
+    expect(pendingAction(card("review", [agent]), OWNER)).toBeUndefined();
+    expect(pendingAction(card("review", [cm(OWNER, "lets deploy", 0), agent]), OWNER)).toBeUndefined();
+    expect(pendingAction(card("review", [agent, cm(OWNER, "I have reviewed, lets deploy", 2)]), OWNER)?.action).toBe("deploy");
+    expect(pendingAction(card("review", [agent, cm(OWNER, "lets deploy", 2, "PR #50")]), OWNER)?.action).toBe("deploy");
+    expect(pendingAction(card("review", [agent, cm(OWNER, "rename the tab to Data layer", 2)]), OWNER)?.action).toBe("feedback");
+    expect(pendingAction(card("blocked", [agent, cm(OWNER, "use option A", 2)]), OWNER)?.action).toBe("answer");
+    // the repo is public: anyone else's "lets deploy" is ignored
+    expect(pendingAction(card("review", [agent, cm("someone-else", "lets deploy", 2)]), OWNER)).toBeUndefined();
+    // comments on Ready / Backlog cards are notes, not signals
+    expect(pendingAction(card("ready", [cm(OWNER, "lets deploy", 2)]), OWNER)).toBeUndefined();
+  });
+
+  it("next: resume, then deploy, answer, feedback, then Ready", () => {
+    const mk = (id: string, status: string, prio: number, action?: string) => ({ id, status, prio, pending: action && { action } });
+    expect(nextCard([mk("B3", "ready", 0), mk("B2", "review", 5, "feedback"), mk("B1", "review", 4, "deploy")])).toMatchObject({ id: "B1", action: "deploy" });
+    expect(nextCard([mk("B3", "ready", 0), mk("B2", "review", 5, "feedback"), mk("X1", "blocked", 9, "answer")])).toMatchObject({ id: "X1", action: "answer" });
+    expect(nextCard([mk("B3", "ready", 0), mk("B2", "review", 5, "feedback")])).toMatchObject({ id: "B2", action: "feedback" });
+    expect(nextCard([mk("B3", "ready", 0), mk("B2", "review", 5)])).toMatchObject({ id: "B3", action: "start" });
+    expect(nextCard([mk("B1", "review", 4, "deploy"), mk("B4", "in_progress", 7)])).toMatchObject({ id: "B4", action: "resume" });
+  });
+
+  it("reads issue and PR comments from the project item", () => {
+    const node = {
+      id: "PVTI_1", fieldValues: { nodes: [{ name: "Review", field: { name: "Status" } }] },
+      content: {
+        number: 17, title: "B2: dataLayer", body: "", state: "OPEN", url: "u", labels: { nodes: [] },
+        comments: { nodes: [{ author: { login: OWNER }, body: "**[agent · review]**\n\nready", createdAt: at(1) }] },
+        closedByPullRequestsReferences: { nodes: [{ number: 50, url: "p", merged: false, state: "OPEN", headRefName: "b2-x", comments: { nodes: [{ author: { login: OWNER }, body: "lets deploy", createdAt: at(3) }] } }] },
+      },
+    };
+    const c = itemToCard(node, OWNER);
+    expect(c.activity.map((m: { on: string }) => m.on)).toEqual(["issue", "PR #50"]);
+    expect(c.pending.action).toBe("deploy");
+    expect(itemToCard(node).pending).toBeUndefined();
+  });
+});
+
+describe("ticking acceptance criteria", () => {
+  const body = "## Goal\n- [ ] not a criterion\n\n## Acceptance criteria\n- [ ] first\n- [x] second\n  - [ ] nested third\n\n## Notes\n- [ ] note";
+  it("numbers only the criteria and ticks one in place", () => {
+    expect(criteria(body).map((c: { n: number; done: boolean; text: string }) => [c.n, c.done, c.text])).toEqual([[1, false, "first"], [2, true, "second"], [3, false, "nested third"]]);
+    const ticked = tickCriterion(body, 1);
+    expect(ticked).toContain("- [x] first");
+    expect(ticked).toContain("## Goal\n- [ ] not a criterion");
+    expect(tickCriterion(body, 2, false)).toContain("- [ ] second");
+    expect(() => tickCriterion(body, 9)).toThrow(/no acceptance criterion 9/);
   });
 });

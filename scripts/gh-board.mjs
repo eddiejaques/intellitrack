@@ -37,7 +37,9 @@ const ITEM_FIELDS = `id
     ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2FieldCommon { name } } }
     ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2FieldCommon { name } } } } }
   content { ... on Issue { id number title body state url labels(first: 20) { nodes { name } }
-    closedByPullRequestsReferences(first: 5, includeClosedPrs: true) { nodes { number state merged url headRefName } } } }`;
+    comments(last: 20) { nodes { author { login } body createdAt } }
+    closedByPullRequestsReferences(first: 5, includeClosedPrs: true) { nodes { number state merged url headRefName
+      comments(last: 20) { nodes { author { login } body createdAt } } } } } }`;
 
 /** Every card on the board (issues only; draft items and PRs are ignored). */
 export function listCards() {
@@ -47,7 +49,7 @@ export function listCards() {
     const d = gql(`query($o:String!,$n:Int!,$a:String){ user(login:$o){ projectV2(number:$n){ items(first:100, after:$a){
       pageInfo { hasNextPage endCursor } nodes { ${ITEM_FIELDS} } } } } }`, { o: CONFIG.owner, n: CONFIG.project, a: after });
     const page = d.user.projectV2.items;
-    for (const node of page.nodes) { const c = itemToCard(node); if (c) cards.push(c); }
+    for (const node of page.nodes) { const c = itemToCard(node, CONFIG.owner); if (c) cards.push(c); }
     if (!page.pageInfo.hasNextPage) return cards;
     after = page.pageInfo.endCursor;
   }

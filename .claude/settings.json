@@ -32,7 +32,9 @@
       "Bash(gh pr diff:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr comment:*)",
-      "Bash(git merge origin/main:*)"
+      "Bash(git merge origin/main:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh issue edit:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",

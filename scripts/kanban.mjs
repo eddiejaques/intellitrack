@@ -2,16 +2,22 @@
 // Needs `gh` logged in with the `project` scope (`gh auth refresh -s project`).
 //
 //   npm run kanban                          summary: counts per column, Blocked and Review cards, the Ready queue
-//   npm run kanban -- next                  the card the dev agent should work on (ID<TAB>title<TAB>#issue), or nothing
+//   npm run kanban -- next                  what the dev agent should do: ID<TAB>title<TAB>#issue<TAB>action, or nothing
+//                                           action: resume | deploy | answer | feedback | start (see nextCard)
 //   npm run kanban -- show B2               the card: fields, body and every comment, oldest first
 //   npm run kanban -- set B2 ready          move a card (backlog|ready|in_progress|blocked|review|done)
 //   npm run kanban -- set B2 review --branch b2-datalayer [--note "…"] [--prio n] [--force]
 //   npm run kanban -- new "Title" --type bug --size S [--body-file f.md] [--ready]   new ad-hoc card X<n>
-//   npm run kanban -- comment B2 "text" [--kind note|answer|feedback|blocked|change|review] [--as pm|agent] [--body-file f.md]
+//   npm run kanban -- comment B2 "text" [--kind note|progress|answer|feedback|blocked|change|review|approve] [--as pm|agent] [--body-file f.md]
+//   npm run kanban -- check B2 [n] [--undo]  list the acceptance criteria, or tick criterion n in the issue body
 //   npm run kanban -- wait [--timeout 1800] [--every 60]   block until there's a card to work on
 //                                           (exit 0 and print it, 3 on timeout, 4 on a stop request)
 //   npm run kanban -- stop | go             ask the dev agent to stop after its card / clear that request
 //   npm run kanban -- dir                   the main checkout (where the stop request file lives)
+//
+// The PM's comments in the browser are signals: on a Review card, "I have reviewed, let's deploy"
+// (or ship it / LGTM / approved) means merge the PR; anything else is feedback. On a Blocked card,
+// any comment is the answer. Only comments from the board owner's account count.
 //
 // Rules the CLI enforces: Ready needs acceptance criteria (--force overrides); WIP limit 1;
 // Done only when the card's PR ("Closes #n") is merged into main, never by hand.
@@ -19,8 +25,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { comment, createCardIssue, findCard, issueComments, listCards, project, reopenIssue, setField } from "./gh-board.mjs";
-import { STATUSES, STATUS_NAMES, checkMove, formatComment, hasCriteria, newCardBody, nextCard, parseComment, sortCards } from "./kanban-lib.mjs";
+import { CONFIG, comment, createCardIssue, editBody, findCard, issueComments, listCards, project, reopenIssue, setField } from "./gh-board.mjs";
+import { STATUSES, STATUS_NAMES, checkMove, criteria, formatComment, hasCriteria, newCardBody, nextCard, parseComment, sortCards, tickCriterion } from "./kanban-lib.mjs";
 
 function mainCheckout() {
   if (process.env.KANBAN_DIR) return process.env.KANBAN_DIR;
@@ -47,12 +53,12 @@ function whoAmI() {
   } catch { return "pm"; }
 }
 
-const line = (c) => `${c.id}\t${c.title}\t#${c.number}`;
+const line = (c) => `${c.id}\t${c.title}\t#${c.number}\t${c.action}`;
 
 function next() {
   const c = nextCard(listCards());
   // with a stop request, the card in progress may still be finished, but no new card is handed out
-  if (existsSync(STOP) && c?.status !== "in_progress") return { stop: true };
+  if (existsSync(STOP) && c?.action !== "resume") return { stop: true };
   return { card: c };
 }
 
@@ -67,7 +73,7 @@ try {
       console.log(`\n${STATUS_NAMES[s]}:`);
       for (const c of by(s)) {
         const pr = c.prs.find((p) => p.state === "OPEN") ?? c.prs[0];
-        console.log(`  ${c.id.padEnd(5)} #${String(c.number).padEnd(4)} ${c.title.slice(0, 80)}${c.branch ? `  [${c.branch}]` : ""}${pr ? `  PR #${pr.number}${pr.merged ? " merged" : ""}` : ""}${s === "ready" && !c.hasCriteria ? "  ⚠ no acceptance criteria" : ""}`);
+        console.log(`  ${c.id.padEnd(5)} #${String(c.number).padEnd(4)} ${c.title.slice(0, 80)}${c.branch ? `  [${c.branch}]` : ""}${pr ? `  PR #${pr.number}${pr.merged ? " merged" : ""}` : ""}${s === "ready" && !c.hasCriteria ? "  ⚠ no acceptance criteria" : ""}${c.pending ? `  ← new comment: ${c.pending.action}` : ""}`);
       }
     }
     if (existsSync(STOP)) console.log("\nstop requested: the dev agent stops after its current card (npm run kanban -- go to clear)");
@@ -100,13 +106,24 @@ try {
     console.log(`Issue #${c.number} (${c.state.toLowerCase()}) ${c.url}`);
     console.log(`Status: ${STATUS_NAMES[c.status]} · Type: ${c.type} · Size: ${c.size} · Prio: ${c.prio}${c.branch ? ` · Branch: ${c.branch}` : ""}`);
     for (const p of c.prs) console.log(`PR #${p.number} ${p.merged ? "merged" : p.state.toLowerCase()} ${p.url}`);
+    if (c.pending) console.log(`Signal: ${c.pending.action} (from the newest owner comments since the agent's last comment)`);
     console.log("\n" + c.body.trim());
     const comments = issueComments(c.number);
     if (comments.length) {
       console.log("\n## Comments (oldest first; the newest answer, feedback or change wins)\n");
       for (const m of comments) {
         const p = parseComment(m.body);
-        console.log(`### ${m.createdAt.slice(0, 16).replace("T", " ")} · ${p.author} · ${p.kind}\n${p.body}\n`);
+        const who = m.author?.login === CONFIG.owner ? p.author : `outsider @${m.author?.login ?? "?"} (ignored)`;
+        console.log(`### ${m.createdAt.slice(0, 16).replace("T", " ")} · ${who} · ${p.kind}\n${p.body}\n`);
+      }
+    }
+    const prComments = c.activity.filter((m) => m.on !== "issue");
+    if (prComments.length) {
+      console.log("\n## PR comments\n");
+      for (const m of prComments) {
+        const p = parseComment(m.body);
+        const who = m.login === CONFIG.owner ? p.author : `outsider @${m.login} (ignored)`;
+        console.log(`### ${m.createdAt.slice(0, 16).replace("T", " ")} · ${m.on} · ${who} · ${p.kind}\n${p.body}\n`);
       }
     }
   } else if (cmd === "set") {
@@ -136,10 +153,20 @@ try {
     const r = createCardIssue({ title: `${id}: ${title}`, body, labels: [`type:${flag("type", "feature")}`], status, prio: Number(flag("prio", 0)), size });
     console.log(`${id}\t#${r.number}\t${r.url}\t${STATUS_NAMES[status]}`);
     if (ready && status !== "ready") console.error(`${id} stays in Backlog: add acceptance criteria ("- [ ] …") first`);
+  } else if (cmd === "check") {
+    const [id, n] = positional();
+    if (!id) die("usage: check <ID> [n] [--undo]");
+    const c = findCard(id);
+    if (n === undefined) {
+      for (const x of criteria(c.body)) console.log(`${x.n}. [${x.done ? "x" : " "}] ${x.text}`);
+    } else {
+      editBody(c.number, tickCriterion(c.body, Number(n), !args.includes("--undo")));
+      console.log(`${c.id}: criterion ${n} ${args.includes("--undo") ? "unticked" : "ticked"}`);
+    }
   } else if (cmd === "comment") {
     const [id, text] = positional();
     const body = flag("body-file") ? readFileSync(flag("body-file"), "utf8") : text;
-    if (!id || !body) die('usage: comment <ID> "text" [--kind note|answer|feedback|blocked|change|review] [--as pm|agent] [--body-file f.md]');
+    if (!id || !body) die('usage: comment <ID> "text" [--kind note|progress|answer|feedback|blocked|change|review|approve] [--as pm|agent] [--body-file f.md]');
     const c = findCard(id);
     comment(c.number, formatComment(whoAmI(), flag("kind", "note"), body));
     console.log(`${c.id}: comment added on #${c.number}`);

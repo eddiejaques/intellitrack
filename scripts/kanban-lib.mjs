@@ -6,12 +6,19 @@
 //
 // The PM and the dev agent post as the same GitHub account, so the agent marks its comments
 // "**[agent · <kind>]**" on the first line, and the PM's answer / feedback comments may carry
-// "**[answer]**" / "**[feedback]**".
+// "**[answer]**" / "**[feedback]**" / "**[approve]**".
+//
+// The PM steers the agent from the browser by commenting. Only comments from the board owner's
+// GitHub account count (the repo is public, so anyone can comment); everyone else is ignored.
+// A new PM comment after the agent's latest comment is a signal (see pendingAction):
+//   Review card + approval ("I have reviewed, let's deploy")  -> the agent merges the PR (deploy)
+//   Review card + anything else                               -> review feedback: rework on the branch
+//   Blocked card + any comment                                -> the answer: resume on the branch
 
 export const STATUSES = ["backlog", "ready", "in_progress", "blocked", "review", "done"];
 export const STATUS_NAMES = { backlog: "Backlog", ready: "Ready", in_progress: "In progress", blocked: "Blocked", review: "Review", done: "Done" };
 const STATUS_BY_NAME = Object.fromEntries(Object.entries(STATUS_NAMES).map(([k, v]) => [v.toLowerCase(), k]));
-export const KINDS = ["note", "answer", "feedback", "blocked", "change", "review"];
+export const KINDS = ["note", "answer", "feedback", "blocked", "change", "review", "approve", "progress"];
 
 /** "B2: dataLayer observer" -> { id: "B2", title: "dataLayer observer" }; undefined for other titles. */
 export function parseTitle(t = "") {
@@ -20,7 +27,7 @@ export function parseTitle(t = "") {
 }
 
 /** One project item (GraphQL node from gh-board.mjs) -> card, or undefined if it isn't an ID'd issue. */
-export function itemToCard(node) {
+export function itemToCard(node, owner) {
   const c = node?.content;
   if (!c?.number) return undefined;
   const t = parseTitle(c.title);
@@ -28,8 +35,15 @@ export function itemToCard(node) {
   const f = {};
   for (const v of node.fieldValues?.nodes ?? []) if (v?.field?.name) f[v.field.name] = v.name ?? v.number ?? v.text;
   const labels = (c.labels?.nodes ?? []).map((l) => l.name);
-  const prs = (c.closedByPullRequestsReferences?.nodes ?? []).map((p) => ({ number: p.number, url: p.url, merged: !!p.merged, state: p.state, branch: p.headRefName }));
-  return {
+  const prNodes = c.closedByPullRequestsReferences?.nodes ?? [];
+  const prs = prNodes.map((p) => ({ number: p.number, url: p.url, merged: !!p.merged, state: p.state, branch: p.headRefName }));
+  // issue and PR comments together, oldest first
+  const activity = [
+    ...(c.comments?.nodes ?? []).map((m) => ({ ...m, on: "issue" })),
+    ...prNodes.flatMap((p) => (p.comments?.nodes ?? []).map((m) => ({ ...m, on: `PR #${p.number}` }))),
+  ].map((m) => ({ login: m.author?.login ?? "", body: m.body ?? "", createdAt: m.createdAt ?? "", on: m.on }))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const card = {
     id: t.id, title: t.title, number: c.number, url: c.url, itemId: node.id, state: c.state, body: c.body ?? "",
     status: STATUS_BY_NAME[String(f.Status ?? "").toLowerCase()] ?? "backlog",
     prio: typeof f.Prio === "number" ? f.Prio : 1000,
@@ -37,16 +51,84 @@ export function itemToCard(node) {
     type: labels.find((l) => l.startsWith("type:"))?.slice(5) ?? "task",
     prs, merged: prs.some((p) => p.merged),
     hasCriteria: hasCriteria(c.body ?? ""),
+    activity,
   };
+  card.pending = pendingAction(card, owner);
+  return card;
+}
+
+/**
+ * An approval to deploy (merge the PR into main): an explicit `**[approve]**` tag, or plain words
+ * like "I have reviewed, let's deploy", "ship it", "merge it", "LGTM", "approved". A negation
+ * ("don't deploy", "not ready to merge") is never an approval.
+ */
+export function isApproval(text = "") {
+  const t = String(text).toLowerCase();
+  if (/^\*\*\[approve\]\*\*/.test(t)) return true;
+  if (/\b(don'?t|do not|not|never|no|hold|wait|before)\b[^.!?\n]{0,30}\b(deploy|merge|ship)/.test(t)) return false;
+  if (/\b(not|un|isn'?t|wasn'?t)\s*approved\b/.test(t)) return false;
+  return /\b(let'?s|lets|go ahead and|please|ok(ay)? to|good to|ready to)\s+(deploy|merge|ship)\b/.test(t)
+    || /\b(ship|merge|deploy) it\b/.test(t) || /\blgtm\b/.test(t) || /\bapproved?\b/.test(t);
+}
+
+/**
+ * What the PM's newest comments ask the agent to do, or undefined. Only comments by `owner` that
+ * came after the agent's latest comment count; the agent's own comments are tagged "[agent · …]".
+ *   { action: "deploy" | "feedback" | "answer", comments: [...] }
+ */
+export function pendingAction(card, owner) {
+  if (!owner || !["review", "blocked"].includes(card.status)) return undefined;
+  const mine = (card.activity ?? []).filter((m) => m.login === owner);
+  let last = -1;
+  mine.forEach((m, i) => { if (parseComment(m.body).author === "agent") last = i; });
+  const fresh = mine.slice(last + 1);
+  if (!fresh.length) return undefined;
+  if (card.status === "blocked") return { action: "answer", comments: fresh };
+  return { action: fresh.some((m) => isApproval(m.body)) ? "deploy" : "feedback", comments: fresh };
 }
 
 const byPrio = (a, b) => a.prio - b.prio || a.id.localeCompare(b.id, "en", { numeric: true });
 
-/** The card the dev agent should work on: one already in progress first (resume), else the top Ready card. */
+/**
+ * What the dev agent should do next, in this order:
+ *   resume   the card already in progress (after a crash or restart)
+ *   deploy   a Review card the PM approved in a comment: merge its PR
+ *   answer   a Blocked card the PM answered in a comment: resume it on its branch
+ *   feedback a Review card the PM commented on: rework it on its branch
+ *   start    the top Ready card (by Prio, then ID)
+ * Returns the card with `action` set, or undefined.
+ */
 export function nextCard(cards) {
   const doing = cards.find((c) => c.status === "in_progress");
-  if (doing) return doing;
-  return cards.filter((c) => c.status === "ready").sort(byPrio)[0];
+  if (doing) return { ...doing, action: "resume" };
+  for (const a of ["deploy", "answer", "feedback"]) {
+    const c = cards.filter((x) => x.pending?.action === a).sort(byPrio)[0];
+    if (c) return { ...c, action: a };
+  }
+  const ready = cards.filter((c) => c.status === "ready").sort(byPrio)[0];
+  return ready && { ...ready, action: "start" };
+}
+
+/** Acceptance criteria as [{ n, done, text, line }] (1-based n), for `kanban -- check`. */
+export function criteria(body = "") {
+  const lines = body.split("\n");
+  const out = [];
+  let inAc = false;
+  lines.forEach((l, i) => {
+    if (/^## /.test(l)) inAc = /^## Acceptance criteria/i.test(l);
+    const m = inAc && /^(\s*- \[)([ xX])(\]\s+)(.*)$/.exec(l);
+    if (m) out.push({ n: out.length + 1, done: m[2] !== " ", text: m[4], line: i });
+  });
+  return out;
+}
+
+/** The body with criterion n ticked (or unticked). */
+export function tickCriterion(body, n, done = true) {
+  const c = criteria(body).find((x) => x.n === n);
+  if (!c) throw new Error(`no acceptance criterion ${n} (there are ${criteria(body).length})`);
+  const lines = body.split("\n");
+  lines[c.line] = lines[c.line].replace(/^(\s*- \[)[ xX](\])/, `$1${done ? "x" : " "}$2`);
+  return lines.join("\n");
 }
 
 export const sortCards = (cards) => [...cards].sort(byPrio);
