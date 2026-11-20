@@ -17,7 +17,7 @@
 |---|---|
 | **Google Analytics 4**, including server-side GTM and first-party endpoints | supported (default) |
 | **Google Ads** conversions and enhanced conversions, with GA4-vs-Ads cross-checks | supported (opt-in) |
-| Everything else (Meta, TikTok, Bing, Criteo, Adobe, Braze, Segment, ...) | captured and shown raw as **not parsed**; parsers are on the [backlog](kanban.md) |
+| Everything else (Meta, TikTok, Bing, Criteo, Adobe, Braze, Segment, ...) | captured and shown raw as **not parsed**; parsers are on the [backlog](https://github.com/users/eddiejaques/projects/1) |
 | **`dataLayer` pushes** (GTM / gtag.js, including renamed layers) | recorded next to the hits; each pushed GA4 event is marked **sent** or **not sent** for its page load |
 
 Rules cover: missing events and parameters per journey step, `value` vs. items total, missing `transaction_id`/currency, duplicate conversions, double-fired events, plaintext personal data, consent signals, `client_id` changes, failed or blocked hits, and GA4/Ads mismatches.
@@ -75,7 +75,7 @@ npm test            # vitest (unit tests, mocked chrome APIs and endpoints)
 npm run eval -- --mock                       # offline eval harness self-check
 npm run eval -- --config eval.config.json    # score real providers (see eval.config.example.json)
 npm run e2e         # real-Chrome smoke test against the local test site (needs `npx playwright install chromium` once)
-npm run kanban      # regenerate kanban.md; `-- next`, `-- set <ID> <status>` move cards
+npm run kanban      # board summary (GitHub Project); `-- next`, `-- show <ID>`, `-- set <ID> <status>`
 ```
 
 ```
@@ -95,11 +95,11 @@ tests/          vitest suites
 
 **Add a vendor:** implement a `VendorMatcher` (`urlHint`, `match`, `parse`, `piiPolicy`) in `extension/src/vendors/`, register it in `vendors/index.ts` and `shared/vendors.ts`, and add parser tests with real captured requests. See `googleAds.ts` for a compact example.
 
-**Workflow:** two Claude Code sessions share one board. A dev agent in a separate worktree runs `/development-start`: it takes Ready cards one at a time, works on a branch per card, and pushes it for review, or blocks the card with a written question. A review session on `main` adds cards, answers blockers and merges. See [`docs/dev-workflow.md`](docs/dev-workflow.md). Planning lives in [`plan.md`](plan.md), cards in [`tasks/`](tasks), and the board in [`kanban.md`](kanban.md).
+**Workflow:** two Claude Code sessions share one board. A dev agent in a separate worktree runs `/development-start`: it takes Ready cards one at a time, works on a branch per card, and opens a PR for review, or blocks the card with a written question. A review session on `main` adds cards, answers blockers and merges PRs. See [`docs/dev-workflow.md`](docs/dev-workflow.md). Planning lives in [`plan.md`](plan.md); the cards are issues on the [GitHub board](https://github.com/users/eddiejaques/projects/1).
 
 ## Status
 
-All six MVP tasks (T1-T6) plus vendor selection, the Google Ads vendor, the live panel and session history are implemented and unit-tested. The "Done when" checks that need real accounts are still open: capture accuracy against GA4 DebugView on real sites, and the live-provider runs of Test connection, the planner eval and the audit eval. See [`kanban.md`](kanban.md) for the exact list and the next task.
+All six MVP tasks (T1-T6) plus vendor selection, the Google Ads vendor, the live panel and session history are implemented and unit-tested. The "Done when" checks that need real accounts are still open: capture accuracy against GA4 DebugView on real sites, and the live-provider runs of Test connection, the planner eval and the audit eval. See the [board](https://github.com/users/eddiejaques/projects/1) for the exact list and the next task.
 
 Known limits: Chrome-family browsers only (Safari is a backlog item); a session follows tabs opened *from* the recorded tab (links with `target=_blank`, `window.open`) but not tabs you open yourself; Google Ads parameter names are written from documentation and need confirmation against live captures.
 
