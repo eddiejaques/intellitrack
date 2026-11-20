@@ -6,9 +6,11 @@
 //   npm run kanban -- set B2 ready          move a card (backlog|ready|in_progress|blocked|review|done)
 //   npm run kanban -- set B2 review --branch b2-datalayer --note "summary"
 //   npm run kanban -- new "Title" --type bug --size S   scaffold tasks/X<n>.md (stays in backlog until set ready)
+//   npm run kanban -- stop                  ask the dev agent to stop after the card in progress (writes .dev-stop)
+//   npm run kanban -- go                    clear that request (run by /development-start)
 //   npm run kanban -- dir                   print the board directory
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { STATUSES, loadCards, newTaskTemplate, nextCard, normEntry, render } from "./kanban-lib.mjs";
 
@@ -24,6 +26,7 @@ function boardDir() {
 
 const DIR = boardDir();
 const STATE = join(DIR, "kanban.state.json");
+const STOP = join(DIR, ".dev-stop");
 const readState = () => (existsSync(STATE) ? JSON.parse(readFileSync(STATE, "utf8")) : {});
 const readTasks = () => {
   const d = join(DIR, "tasks");
@@ -42,9 +45,18 @@ function regenerate() {
 const [cmd, ...args] = process.argv.slice(2);
 if (!cmd) regenerate();
 else if (cmd === "dir") console.log(DIR);
-else if (cmd === "next") {
+else if (cmd === "stop") {
+  writeFileSync(STOP, new Date().toISOString() + "\n");
+  const doing = load().backlog.find((b) => b.status === "in_progress");
+  console.log(doing ? `stop requested: the dev agent finishes ${doing.id} (${doing.item}), then stops` : "stop requested: the dev agent stops before taking another card");
+} else if (cmd === "go") {
+  rmSync(STOP, { force: true });
+  console.log("stop request cleared");
+} else if (cmd === "next") {
+  // with a stop request, the card in progress may still be finished, but no new card is handed out
   const c = nextCard(load());
-  if (c) console.log(`${c.id}\t${c.item}`);
+  if (existsSync(STOP) && c?.status !== "in_progress") console.error("stop requested (npm run kanban -- go to clear)");
+  else if (c) console.log(`${c.id}\t${c.item}`);
 } else if (cmd === "set") {
   const [id, status] = args;
   if (!id || !STATUSES.includes(status)) {

@@ -5,7 +5,7 @@ Two Claude Code sessions, one board. Each has a start command:
 | Session | Folder | Start | Stop |
 |---|---|---|---|
 | **Review mode** (you, as product manager) | `~/Documents/Intellitrack` (on `main`) | `/review-start` | `/review-stop` |
-| **Dev agent** | `~/Documents/Intellitrack-dev` | `/development-start` | stops by itself when nothing is Ready |
+| **Dev agent** | `~/Documents/Intellitrack-dev` | `/development-start` | `/development-stop` (finishes the card in progress first), or stops by itself when nothing is Ready |
 
 ```
  review session (main checkout, on main)            dev agent (../Intellitrack-dev worktree)
@@ -53,7 +53,7 @@ cd ~/Documents/Intellitrack-dev
 claude            # then type /development-start
 ```
 
-It loops until nothing is Ready, then prints a summary. Each finished card is a pushed branch. Each bottleneck is a Blocked card, and the agent doesn't wait on it: it moves to the next card. `.claude/settings.json` pre-approves the build, test, git and board commands. Force-push and `reset --hard` are denied everywhere. Pushing or merging to `main` is also denied in the dev folder (`.claude/settings.local.json`, written by the setup script).
+It loops until nothing is Ready, then prints a summary. To stop it earlier, type `/development-stop` in either window. The agent finishes the card it's on (to Review or Blocked, tested and pushed), doesn't take another, and stops. `/development-start` clears the request next time. Each finished card is a pushed branch. Each bottleneck is a Blocked card, and the agent doesn't wait on it: it moves to the next card. `.claude/settings.json` pre-approves the build, test, git and board commands. Force-push and `reset --hard` are denied everywhere. Pushing or merging to `main` is also denied in the dev folder (`.claude/settings.local.json`, written by the setup script).
 
 ## Review mode (product manager)
 
