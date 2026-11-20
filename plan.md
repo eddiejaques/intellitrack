@@ -325,7 +325,7 @@ The order weighs audit value for pilot users, risk reduction, and readiness for 
 | 20 | B17 | **HubSpot, Klaviyo** | vendor | M | Engagement platforms for SMB and DTC. | B8 |
 | 21 | B18 | **Amplitude, RudderStack** | vendor | M | Product analytics and CDP. | B11 |
 | 22 | B19 | **Auto re-plan suggestion** | planner | S | Nicer UX for long journeys across sections. | MVP |
-| 23 | B20 | **Custom user-defined expected events** | planner | M | For teams with their own tracking plan. | MVP |
+| 23 | B20 | **User specification as the audit yardstick** (upload or paste a list of requirements per site; each checked as pass / fail / not tested) | planner | L | For teams with their own tracking plan: the audit checks their requirements, not only ours. | X1 |
 | 24 | B21 | **TikTok, LinkedIn Insight, Pinterest, Bing UET, Snap** | vendor | M | Long tail of ad pixels. One shared parser pattern. | B5 |
 | 25 | B22 | **Adobe Analytics / Web SDK (AEP Edge)** | vendor | L | Enterprise. Complex XDM / eVar mapping. | B2 |
 | 26 | B23 | **PDF export + session history** | UI | M | Agencies hand reports to clients. | MVP |
