@@ -1,5 +1,6 @@
 import { mountLogView } from "./logview";
 import { pageUrl, send } from "./session";
+import { selectedEventCount } from "../shared/vendors";
 import type { SessionMeta } from "../shared/types";
 
 const count = document.getElementById("count")!;
@@ -11,12 +12,12 @@ const audit = document.getElementById("audit") as HTMLAnchorElement;
 /** The header always describes the session the table below is showing. */
 function paint(s?: SessionMeta) {
   const rec = s?.status === "recording";
-  count.textContent = String(s?.eventCount ?? 0);
+  count.textContent = String(s ? selectedEventCount(s) : 0);
   label.textContent = rec ? "Recording" : s ? "Stopped" : "Ready";
   dot.className = `dot ${rec ? "rec" : s ? "done" : ""}`;
   toggle.textContent = rec ? "Stop recording" : "Start on current tab";
   toggle.className = `btn sm ${rec ? "secondary" : "primary"}`;
-  const canAudit = !!s && !rec && s.eventCount > 0;
+  const canAudit = !!s && !rec && selectedEventCount(s) > 0;
   audit.classList.toggle("hide", !canAudit);
   if (canAudit) audit.href = pageUrl("preview.html", s!.id);
 }

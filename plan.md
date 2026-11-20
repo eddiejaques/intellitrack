@@ -303,33 +303,34 @@ The order weighs audit value for pilot users, risk reduction, and readiness for 
 
 | Prio | ID | Item | Type | Size | Why at this position | Depends on |
 |---|---|---|---|---|---|---|
-| 1 | B27 | **Live visibility and session management** (bug, found on a real shop): record every tag-like request, parsed or not; GA4 on custom server-side paths; side panel with live count and raw tag tables; Sessions history grouped by site, each session with its own log, plan and report; one journey audited by default; empty sessions are inconclusive instead of a wall of failures | bug | M | Reported from a real recording: nothing visible while browsing, no way to inspect raw tags, three tests looked like one blur, and an empty capture produced 19 findings. | MVP |
-| 2 | B26 | **UI design pass** (shared design system: tokens, light/dark, type scale, icons; popup, settings, preview, report, raw viewer; toolbar icons) | UI | M | The MVP UI grew by task and is cluttered. Pilot users judge the product by what they see first, and designers are an early audience. | MVP |
-| 3 | B1 | **Google Ads conversion + enhanced conversions** | vendor | M | The most-requested check after GA4. Unlocks the first cross-vendor check (GA4 purchase value vs Ads conversion value) and the hashing check. | MVP |
-| 4 | B2 | **`dataLayer` observer** (MAIN world) | capture | M | Finds "pushed but never sent", which is the most common cause of GTM bugs. Benefits every vendor. | MVP |
-| 5 | B3 | **Lead-gen rule pack** | rules | S | Lead-gen is the second most common site type. Cheap once the plan-driven rules exist. | MVP |
-| 6 | B4 | **Passphrase-encrypted key storage** | security | S | Required before any public listing. | MVP |
-| 7 | B5 | **Meta Pixel** | vendor | S | Widely used. `eventID` dedup with CAPI is a frequent fault. | MVP |
-| 8 | B6 | **Floodlight / CM360** | vendor | S | Enterprise and agency demand. Simple URL parsing. | MVP |
-| 9 | B7 | **Licensing + paywall + public Web Store listing** (€25, Lemon Squeezy/Paddle/Gumroad, offline Ed25519 key, free tier = GA4 + rule report) | business | M | Starts revenue once the vendor set justifies €25. | B4 |
-| 10 | B8 | **Braze Web SDK** | vendor | M | First engagement-platform vendor. Introduces `piiPolicy: expected` and identity-timing checks (`changeUser` at login or signup). | MVP |
-| 11 | B9 | **Salesforce Marketing Cloud Personalization** (Interaction Studio / Evergage) | vendor | M | Most common Salesforce web tag in e-commerce. | B8 (reuses identity checks) |
-| 12 | B10 | **Salesforce Data Cloud Web SDK** | vendor | M | Consent and identity event ordering. | B8 |
-| 13 | B11 | **Segment** | vendor | M | CDP. `identify` → `track` ordering; Segment Spec. | MVP |
-| 14 | B12 | **Mixpanel** | vendor | S | Product analytics. `distinct_id` stability. | MVP |
-| 15 | B13 | **Multi-tab journeys** (payment pop-ups, 3-D Secure) | capture | M | Checkouts that open a new tab currently lose their purchase events. | MVP |
-| 16 | B14 | **Content rule pack** | rules | S | Publisher sites. | MVP |
-| 17 | B15 | **Salesforce Account Engagement (Pardot)** | vendor | S | B2B lead-gen sites. | B8, B3 |
-| 18 | B16 | **Salesforce Marketing Cloud Engagement (Collect.js)** | vendor | S | Legacy, but still widespread. | B8 |
-| 19 | B17 | **HubSpot, Klaviyo** | vendor | M | Engagement platforms for SMB and DTC. | B8 |
-| 20 | B18 | **Amplitude, RudderStack** | vendor | M | Product analytics and CDP. | B11 |
-| 21 | B19 | **Auto re-plan suggestion** | planner | S | Nicer UX for long journeys across sections. | MVP |
-| 22 | B20 | **Custom user-defined expected events** | planner | M | For teams with their own tracking plan. | MVP |
-| 23 | B21 | **TikTok, LinkedIn Insight, Pinterest, Bing UET, Snap** | vendor | M | Long tail of ad pixels. One shared parser pattern. | B5 |
-| 24 | B22 | **Adobe Analytics / Web SDK (AEP Edge)** | vendor | L | Enterprise. Complex XDM / eVar mapping. | B2 |
-| 25 | B23 | **PDF export + session history** | UI | M | Agencies hand reports to clients. | MVP |
-| 26 | B24 | **Universal Analytics leftovers flag** | vendor | S | Quick win: flags dead UA tags still firing. Can be pulled in any time there's slack. | MVP |
-| 27 | B25 | **Safari port** (App Store, MAIN-world capture, Keychain, native messaging) | platform | L | Second platform. Lets Apple charge the €25 on the App Store instead of us running license keys. | B2, B7 |
+| 1 | B28 | **Vendor selection** (plan §5 "filter to the selected vendors"): choose GA4 and/or Google Ads per session in the popup, live log and audit preview; GA4 is the default; every vendor is still captured | feature | S | The MVP promised the ability to select vendors, GA4 only to start. B1 added a second vendor, so the choice has to exist. | B1 |
+| 2 | B27 | **Live visibility and session management** (bug, found on a real shop): record every tag-like request, parsed or not; GA4 on custom server-side paths; side panel with live count and raw tag tables; Sessions history grouped by site, each session with its own log, plan and report; one journey audited by default; empty sessions are inconclusive instead of a wall of failures | bug | M | Reported from a real recording: nothing visible while browsing, no way to inspect raw tags, three tests looked like one blur, and an empty capture produced 19 findings. | MVP |
+| 3 | B26 | **UI design pass** (shared design system: tokens, light/dark, type scale, icons; popup, settings, preview, report, raw viewer; toolbar icons) | UI | M | The MVP UI grew by task and is cluttered. Pilot users judge the product by what they see first, and designers are an early audience. | MVP |
+| 4 | B1 | **Google Ads conversion + enhanced conversions** | vendor | M | The most-requested check after GA4. Unlocks the first cross-vendor check (GA4 purchase value vs Ads conversion value) and the hashing check. | MVP |
+| 5 | B2 | **`dataLayer` observer** (MAIN world) | capture | M | Finds "pushed but never sent", which is the most common cause of GTM bugs. Benefits every vendor. | MVP |
+| 6 | B3 | **Lead-gen rule pack** | rules | S | Lead-gen is the second most common site type. Cheap once the plan-driven rules exist. | MVP |
+| 7 | B4 | **Passphrase-encrypted key storage** | security | S | Required before any public listing. | MVP |
+| 8 | B5 | **Meta Pixel** | vendor | S | Widely used. `eventID` dedup with CAPI is a frequent fault. | MVP |
+| 9 | B6 | **Floodlight / CM360** | vendor | S | Enterprise and agency demand. Simple URL parsing. | MVP |
+| 10 | B7 | **Licensing + paywall + public Web Store listing** (€25, Lemon Squeezy/Paddle/Gumroad, offline Ed25519 key, free tier = GA4 + rule report) | business | M | Starts revenue once the vendor set justifies €25. | B4 |
+| 11 | B8 | **Braze Web SDK** | vendor | M | First engagement-platform vendor. Introduces `piiPolicy: expected` and identity-timing checks (`changeUser` at login or signup). | MVP |
+| 12 | B9 | **Salesforce Marketing Cloud Personalization** (Interaction Studio / Evergage) | vendor | M | Most common Salesforce web tag in e-commerce. | B8 (reuses identity checks) |
+| 13 | B10 | **Salesforce Data Cloud Web SDK** | vendor | M | Consent and identity event ordering. | B8 |
+| 14 | B11 | **Segment** | vendor | M | CDP. `identify` → `track` ordering; Segment Spec. | MVP |
+| 15 | B12 | **Mixpanel** | vendor | S | Product analytics. `distinct_id` stability. | MVP |
+| 16 | B13 | **Multi-tab journeys** (payment pop-ups, 3-D Secure) | capture | M | Checkouts that open a new tab currently lose their purchase events. | MVP |
+| 17 | B14 | **Content rule pack** | rules | S | Publisher sites. | MVP |
+| 18 | B15 | **Salesforce Account Engagement (Pardot)** | vendor | S | B2B lead-gen sites. | B8, B3 |
+| 19 | B16 | **Salesforce Marketing Cloud Engagement (Collect.js)** | vendor | S | Legacy, but still widespread. | B8 |
+| 20 | B17 | **HubSpot, Klaviyo** | vendor | M | Engagement platforms for SMB and DTC. | B8 |
+| 21 | B18 | **Amplitude, RudderStack** | vendor | M | Product analytics and CDP. | B11 |
+| 22 | B19 | **Auto re-plan suggestion** | planner | S | Nicer UX for long journeys across sections. | MVP |
+| 23 | B20 | **Custom user-defined expected events** | planner | M | For teams with their own tracking plan. | MVP |
+| 24 | B21 | **TikTok, LinkedIn Insight, Pinterest, Bing UET, Snap** | vendor | M | Long tail of ad pixels. One shared parser pattern. | B5 |
+| 25 | B22 | **Adobe Analytics / Web SDK (AEP Edge)** | vendor | L | Enterprise. Complex XDM / eVar mapping. | B2 |
+| 26 | B23 | **PDF export + session history** | UI | M | Agencies hand reports to clients. | MVP |
+| 27 | B24 | **Universal Analytics leftovers flag** | vendor | S | Quick win: flags dead UA tags still firing. Can be pulled in any time there's slack. | MVP |
+| 28 | B25 | **Safari port** (App Store, MAIN-world capture, Keychain, native messaging) | platform | L | Second platform. Lets Apple charge the €25 on the App Store instead of us running license keys. | B2, B7 |
 | — | T-1 | **Move B2 into the MVP** | triggered | — | **Trigger:** T1's ≥ 99% capture gate fails. | — |
 | — | T-2 | **Reference specs in `shared/specs/`**, injected into prompts | triggered | M | **Trigger:** the T5 eval shows providers' plans disagree on the same fixture. | T5 |
 | — | T-3 | **Reprioritize B8–B10 against B1–B6** | triggered | — | **Trigger:** pilot users run Braze or Salesforce rather than Google Ads or Meta. | — |

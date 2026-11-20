@@ -99,6 +99,10 @@ export interface SessionMeta {
   selection?: { journeys: string[]; excluded_steps: string[] };
   plan_calls?: number;
   last_plan_at?: number;
+  /** vendors this session is judged on (default: GA4). Every vendor is still captured; this filters views and audits. */
+  vendors?: string[];
+  /** parsed events per vendor, for all vendors seen */
+  vendor_counts?: Record<string, number>;
   /** where the recording started: used to group sessions by site in the history */
   site?: { origin: string; host: string; title?: string; url?: string };
   /** tag requests stored / of which no vendor parser recognised */
@@ -120,6 +124,7 @@ export type Message =
   | { type: "getReport"; sessionId: string }
   | { type: "getSession"; sessionId: string }
   | { type: "listSessions" }
+  | { type: "setVendors"; vendors: string[]; sessionId?: string; asDefault?: boolean }
   | { type: "deleteSession"; sessionId: string }
   | { type: "getState" }
   | { type: "getEvents"; sessionId: string }

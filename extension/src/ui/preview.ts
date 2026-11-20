@@ -2,6 +2,8 @@ import { buildPayload, findRawPii } from "../minimize";
 import { loadConfig, validateConfig } from "../llm/config";
 import { sessionPlan } from "../planner/plan";
 import { fmtDuration, fmtWhen, guardWorker, pageUrl, resolveSession, siteLabel } from "./session";
+import { saveVendors, vendorPicker } from "./vendorPicker";
+import { sessionVendors } from "../shared/vendors";
 import type { StoredEvent } from "../background/store";
 import type { AuditReport, JourneyPlan, Message, Payload, RequestRow, SessionMeta } from "../shared/types";
 
@@ -34,7 +36,16 @@ function parsePlan(text: string): JourneyPlan | undefined | Error {
 
 function render(plan?: JourneyPlan) {
   if (!session) return;
-  payload = buildPayload({ session, events, plan });
+  const sel = sessionVendors(session);
+  const chosen = events.filter((e) => sel.includes(e.vendor));
+  const counts: Record<string, number> = {};
+  for (const e of events) counts[e.vendor] = (counts[e.vendor] ?? 0) + 1;
+  $("vendors").replaceChildren(vendorPicker(sel, counts, async (next) => {
+    await saveVendors(next, { sessionId: session!.id });
+    session = { ...session!, vendors: next };
+    render(plan);
+  }));
+  payload = buildPayload({ session, events: chosen, plan });
   $("fcount").textContent = `· ${payload.rule_findings.length}`;
   $("findings").replaceChildren(
     ...(payload.rule_findings.length
