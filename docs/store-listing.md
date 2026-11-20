@@ -54,7 +54,9 @@ Data the extension handles:
 - **Website content.** The recorded page's structure is sent to *your own* LLM endpoint for journey planning, according to your per-site choice (*Always*, *Ask each time*, *Never*).
 - **Web browsing activity.** The page URLs inside the recorded tab's tag requests. These are stored locally. An audit sends a minimized version (URL queries dropped, IDs in paths become `:id`) to your own LLM, only after you preview and confirm it.
 
-Not handled: personally identifiable information, health, financial or payment, authentication, personal communications, location. Emails, phone numbers and hashes found in tags are redacted to placeholders before anything is sent, and sending is blocked if the payload still looks like it holds personal data.
+- **Authentication information.** Your own LLM API key, entered in Settings. It is stored unencrypted in `chrome.storage.local` on your machine and sent only to the provider you configured, as that API requires. Nobody else receives it.
+
+Not handled: personally identifiable information, health, financial or payment, personal communications, location. Emails, phone numbers and hashes found in tags are redacted to placeholders before anything is sent, and sending is blocked if the payload still looks like it holds personal data.
 
 Certify all three statements:
 

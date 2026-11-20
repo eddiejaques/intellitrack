@@ -62,7 +62,7 @@ export function addChangelogEntry(text, version, date, cards) {
 }
 
 /** @returns {{ code: number, version?: string, tag?: string, lines: string[] }} */
-export function release({ dir = process.cwd(), bump, date = new Date().toISOString().slice(0, 10), remote = "origin", main = "main" }) {
+export function release({ dir = process.cwd(), bump, date = new Date().toLocaleDateString("sv-SE") /* local YYYY-MM-DD */, remote = "origin", main = "main" }) {
   const lines = [];
   const fail = (msg) => ({ code: 1, lines: [...lines, msg] });
   try {

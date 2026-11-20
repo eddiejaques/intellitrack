@@ -13,16 +13,16 @@ The MVP is **Unlisted**: pilot users install it from the store link and get upda
 
 ## One-time setup (the PM, by hand)
 
-The agent can't do these, because they need your Google account. Steps 1 to 4 happen in the browser.
+The agent can't do these, because they need your Google account. Do them **after the X9 pull request is merged**, because step 2 needs `npm run package` on `main`. Merging doesn't depend on this setup: without the secrets, the pipeline skips the store step. Steps 1 to 4 happen in the browser.
 
 1. **Developer account.** Sign in at the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) with the Google account that will own IntelliTrack, and pay the one-time $5 registration fee. Turn on **2-step verification** for that account, because the API requires it.
 
 2. **First upload, by hand.** The API can only update an item that already exists.
-   - In the main checkout, run `npm run package`. It creates `release/intellitrack-X.Y.Z.zip`.
+   - In the main checkout, on an up-to-date `main`, run `npm run package`. It creates `release/intellitrack-0.1.0.zip`.
    - In the dashboard: **New item**, then upload that zip.
    - Fill in the **Store listing** and **Privacy** tabs from [store-listing.md](store-listing.md), and add the screenshots and promo tile.
    - Under **Distribution**, set visibility to **Unlisted**.
-   - Submit it for review.
+   - Submit it for review. **Wait until this first review is finished** before you tag 0.2.0. See *Review timing*.
    - Note two values. The **extension ID** (32 letters) is on the item's page. The **publisher ID** is under **Publisher > Settings** (Account) in the dashboard.
 
 3. **API access** (Google Cloud Console):
@@ -69,11 +69,17 @@ It never pushes. The push sends the commit and the tag together, and the tag sta
 
 To write the release notes yourself, add a `## X.Y.Z (unreleased)` section to `CHANGELOG.md` and merge it before you run the release. The command keeps your text and only fills in the date.
 
-**The first release is 0.2.0.** `CHANGELOG.md` already has a hand-written `0.2.0 (unreleased)` entry covering the MVP, B1 and B26–B28. Add any cards merged since then (for example B2) to it, then run `npm run release -- minor`. Before that first tag, also run the zip smoke test once on your machine, because the CI run hasn't been seen yet:
+**The first release is 0.2.0.** `CHANGELOG.md` already has a hand-written `0.2.0 (unreleased)` entry covering the MVP, B1 and B26–B28. In order:
 
-```bash
-npm run package && npm run e2e -- --from-zip release/intellitrack-0.1.0.zip
-```
+1. Add any cards merged since then (for example B2) to that entry. Commit the change and push it to `main`. `npm run release` refuses a dirty tree or a `main` that isn't exactly `origin/main`.
+2. Run `npm run release -- minor`. It dates the entry, sets the version to 0.2.0, commits and tags.
+3. **Before you push**, run the smoke test on the zip that CI will test, once on your machine. The CI e2e step hasn't been seen running yet, and the first tag is its first run:
+   ```bash
+   npm run package && npm run e2e -- --from-zip release/intellitrack-0.2.0.zip
+   ```
+4. `git push origin main --follow-tags`.
+
+If the CI e2e step fails on that first run for reasons of the CI machine rather than the extension (for example no Chrome there), the local run in step 3 is the release check. Note it on the card so the pipeline can be fixed.
 
 ## Check the result
 
