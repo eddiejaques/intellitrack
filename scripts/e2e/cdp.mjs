@@ -99,5 +99,14 @@ export async function launch({ dist = resolve("dist"), port = 9333 } = {}) {
     const shot = await send("Page.captureScreenshot", { format: "png" }, es);
     (await import("node:fs")).writeFileSync(file, Buffer.from(shot.data, "base64"));
   };
-  return { send, extId, page, ext, msg, goto, tabId, click, screenshot, evalPage: (e) => evalIn(page.sid, e), close: () => proc.kill() };
+  /** open an extension page in the helper tab (ext() then runs there) */
+  const extGoto = async (extPage, waitMs = 1500) => { await send("Page.navigate", { url: `chrome-extension://${extId}/${extPage}` }, es); await sleep(waitMs); };
+  /** open a URL in a fresh tab nobody records; returns an evaluate function for it */
+  const otherTab = async (url, waitMs = 0) => {
+    const sid = await attach();
+    await send("Page.navigate", { url }, sid);
+    if (waitMs) await sleep(waitMs);
+    return (expr) => evalIn(sid, expr);
+  };
+  return { send, extId, page, ext, extGoto, otherTab, msg, goto, tabId, click, screenshot, evalPage: (e) => evalIn(page.sid, e), close: () => proc.kill() };
 }

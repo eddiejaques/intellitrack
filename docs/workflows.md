@@ -71,7 +71,8 @@ The **Tags** tab of the live panel / session log lists *every* tag-like request,
    - **`not parsed · Universal Analytics (legacy)`:** the site still sends old UA hits instead of GA4.
    - **A warning that GA4 loaded but sent no hits:** the site's GA4 tag is silent (see Troubleshooting). IntelliTrack lists every Google tag it saw load (`G-…`, `GTM-…`, `AW-…`) at the top of the log.
    - **GA4 requests that are not recognised:** use **Export JSON** in the session log and open an issue with the file. Server-side setups that rename or obfuscate the path can look different.
-4. If a session captured nothing, its report is *inconclusive*: no score, no LLM call, and a short checklist instead of a wall of "missing" findings.
+4. Open the **Data layer** tab to see what the page *pushed* to `window.dataLayer` (or a renamed layer from `gtm.js?l=…`), in order: `gtag('event', …)`, `config`, `consent`, and GTM pushes such as `{ event: "add_to_cart", ecommerce: … }`. Each pushed GA4 event says **sent** when a GA4 hit with the same event name came from the same page load, or **not sent** when none did. A row of **not sent** events means the page did its part and the tag (its trigger, consent, or configuration) did not. GTM's own events (`gtm.js`, `gtm.dom`, `gtm.load`, …) and `config`/`consent` commands are listed without a verdict. Pushes made before recording started are marked *already in dataLayer*. Payloads are redacted before they are stored; click a row to see one.
+5. If a session captured nothing, its report is *inconclusive*: no score, no LLM call, and a short checklist instead of a wall of "missing" findings.
 
 ## 5. Choose which vendors to audit
 
@@ -85,7 +86,7 @@ Every vendor is always **captured**. The vendor pills decide what is **counted, 
 ## 6. Share a result
 
 - **Report → Export Markdown** gives a readable file for tickets and docs. **Export JSON** gives the full structured report.
-- **Session log → Export JSON** exports the raw session (events and every tag request). Attach this when reporting a capture problem. It contains the URLs and bodies of tag requests from your browsing, so review it before sharing.
+- **Session log → Export JSON** exports the raw session (events, every tag request and the redacted `dataLayer` pushes). Attach this when reporting a capture problem. It contains the URLs and bodies of tag requests from your browsing, so review it before sharing.
 
 ---
 
