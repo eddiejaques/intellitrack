@@ -48,6 +48,7 @@ function sessionRow(x: SessionSummary): HTMLElement {
     h("div", "",
       h("div", "row wrap", h("span", "when", fmtWhen(s.startedAt)), h("span", "muted", `· ${rec ? "recording" : fmtDuration(s)}`), s.plan ? chip(s.plan.site_type.replace("_", " "), "accent") : h("span")),
       h("div", "meta", ...vendorChips(s), chip(`${s.request_count ?? 0} tag requests`),
+        (s.tabIds?.length ?? 0) > 1 ? chip(`${s.tabIds!.length} tabs`) : h("span"),
         (s.unrecognized_count ?? 0) ? chip(`${s.unrecognized_count} not parsed`, "partial") : h("span"),
         s.site?.title ? h("span", "muted", s.site.title) : h("span"))),
     h("div", "side", scoreEl(x.report),

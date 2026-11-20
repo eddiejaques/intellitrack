@@ -81,10 +81,10 @@ describe("capture", () => {
     const c = await import("../extension/src/background/capture");
     await c.startSession(7);
     await c.handleRequest(req({ tabId: -1, initiator: "https://shop.example", requestId: "w1", body: "en=a" }) as any);
-    await c.handleRequest(req({ tabId: -1, initiator: "https://pay.example", requestId: "w2", body: "en=b" }) as any);
+    await c.handleRequest(req({ tabId: -1, initiator: "https://pay.example", requestId: "w2", body: "en=b", url: URL_.replace("shop.example", "pay.example") }) as any);
     expect((await c.loadSession())!.eventCount).toBe(1);
     await c.noteTabUrl(7, "https://pay.example/checkout");
-    await c.handleRequest(req({ tabId: -1, initiator: "https://pay.example", requestId: "w3", body: "en=c" }) as any);
+    await c.handleRequest(req({ tabId: -1, initiator: "https://pay.example", requestId: "w3", body: "en=c", url: URL_.replace("shop.example", "pay.example") }) as any);
     expect((await c.loadSession())!.eventCount).toBe(2);
   });
 

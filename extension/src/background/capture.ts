@@ -88,6 +88,7 @@ export function startSession(tabId: number): Promise<SessionMeta> {
       nextReq: 1,
       markers: [],
       plan_calls: 0,
+      tabIds: [tabId],
       vendors: await defaultVendors(),
       vendor_counts: {},
       site: o ? { origin: o, host, title: tab.title?.slice(0, 120), url: tab.url?.split("#")[0].slice(0, 300) } : undefined,
@@ -135,7 +136,7 @@ export function addMarker(name: string, stepId?: string): Promise<Marker | undef
 export function noteTabUrl(tabId: number, url: string): Promise<void> {
   return serialize(async () => {
     const s = await loadSession();
-    if (!s || s.status !== "recording" || s.tabId !== tabId) return;
+    if (!s || s.status !== "recording" || !recordedTabs(s).includes(tabId)) return;
     const o = originOf(url);
     if (o && !s.origins.includes(o)) {
       s.origins.push(o);
@@ -144,8 +145,42 @@ export function noteTabUrl(tabId: number, url: string): Promise<void> {
   });
 }
 
+/**
+ * Which page does this hit describe? GA4 carries it in `dl`, Google Ads in `url`. Requests made by
+ * a service worker or shared worker have no tab (tabId -1) and an initiator that can be a CDN
+ * origin, so the page the hit is about is the only reliable way to attribute them.
+ */
+export function hitDocumentOrigin(url: string): string | undefined {
+  try {
+    const q = new URL(url).searchParams;
+    const loc = q.get("dl") ?? q.get("url") ?? q.get("page_location");
+    return loc ? new URL(loc).origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const MAX_FOLLOWED_TABS = 10;
+export const recordedTabs = (s: Pick<SessionMeta, "tabId" | "tabIds">): number[] => s.tabIds ?? [s.tabId];
+
+/**
+ * Sites like shops open products and checkouts in a new tab. A tab opened by a recorded tab joins
+ * the recording, so the journey does not vanish after the first click.
+ */
+export function followTab(openerTabId: number, newTabId: number): Promise<boolean> {
+  return serialize(async () => {
+    const s = await loadSession();
+    if (!s || s.status !== "recording") return false;
+    const tabs = recordedTabs(s);
+    if (!tabs.includes(openerTabId) || tabs.includes(newTabId) || tabs.length >= MAX_FOLLOWED_TABS) return false;
+    s.tabIds = [...tabs, newTabId];
+    await saveSession(s);
+    return true;
+  });
+}
+
 function belongsToSession(s: SessionMeta, req: Pick<RawRequest, "tabId" | "initiator">): boolean {
-  if (req.tabId === s.tabId) return true;
+  if (recordedTabs(s).includes(req.tabId)) return true;
   if (req.tabId === -1 && req.initiator) return s.origins.includes(req.initiator);
   return false;
 }
@@ -162,8 +197,24 @@ const hostOf = (url: string) => { try { return new URL(url).host; } catch { retu
 export function handleRequest(req: RawRequest): Promise<void> {
   return serialize(async () => {
     const s = await loadSession();
-    if (!s || s.status !== "recording" || !belongsToSession(s, req)) return;
+    if (!s || s.status !== "recording") return;
     const matcher = vendors.find((v) => v.match(req));
+    let mine = belongsToSession(s, req);
+    if (!mine && req.tabId === -1 && matcher) {
+      // From a worker: attribute by the page the hit says it is about, and never lose track of the rest.
+      const doc = hitDocumentOrigin(req.url);
+      if (doc && s.origins.includes(doc)) mine = true;
+      else {
+        const u = s.unattributed ?? { count: 0, initiators: [] };
+        u.count++;
+        const who = req.initiator ?? "(no initiator)";
+        if (!u.initiators.includes(who) && u.initiators.length < 5) u.initiators.push(who);
+        s.unattributed = u;
+        await saveSession(s);
+        return;
+      }
+    }
+    if (!mine) return;
     if (!matcher && !looksLikeTag(req.url, req.type)) return;
 
     const t = Math.max(0, (req.timeStamp - s.startedAt) / 1000);

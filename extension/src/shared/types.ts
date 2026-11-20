@@ -99,6 +99,10 @@ export interface SessionMeta {
   selection?: { journeys: string[]; excluded_steps: string[] };
   plan_calls?: number;
   last_plan_at?: number;
+  /** tabs being recorded: the one you started on plus tabs it opened (links with target=_blank, window.open) */
+  tabIds?: number[];
+  /** tag hits that arrived from a worker/other context and could not be tied to this tab */
+  unattributed?: { count: number; initiators: string[] };
   /** vendors this session is judged on (default: GA4). Every vendor is still captured; this filters views and audits. */
   vendors?: string[];
   /** parsed events per vendor, for all vendors seen */
@@ -244,6 +248,8 @@ export interface Payload {
 
 /** Capture-side facts that explain an empty or odd session. Not part of the LLM payload. */
 export interface AuditDiagnostics {
+  /** recognised hits from workers/other contexts that were not counted for this tab */
+  unattributed?: number;
   tag_requests: number;
   not_parsed: number;
   duration_s?: number;

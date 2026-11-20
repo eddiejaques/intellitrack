@@ -318,7 +318,7 @@ The order weighs audit value for pilot users, risk reduction, and readiness for 
 | 13 | B10 | **Salesforce Data Cloud Web SDK** | vendor | M | Consent and identity event ordering. | B8 |
 | 14 | B11 | **Segment** | vendor | M | CDP. `identify` → `track` ordering; Segment Spec. | MVP |
 | 15 | B12 | **Mixpanel** | vendor | S | Product analytics. `distinct_id` stability. | MVP |
-| 16 | B13 | **Multi-tab journeys** (payment pop-ups, 3-D Secure) | capture | M | Checkouts that open a new tab currently lose their purchase events. | MVP |
+| 16 | B13 | **Multi-tab journeys** (payment pop-ups, 3-D Secure) | capture | M | Checkouts that open a new tab currently lose their purchase events. (Tabs opened *from* the recorded tab are now followed automatically; this item covers the rest, e.g. tabs the user opens by hand.) | MVP |
 | 17 | B14 | **Content rule pack** | rules | S | Publisher sites. | MVP |
 | 18 | B15 | **Salesforce Account Engagement (Pardot)** | vendor | S | B2B lead-gen sites. | B8, B3 |
 | 19 | B16 | **Salesforce Marketing Cloud Engagement (Collect.js)** | vendor | S | Legacy, but still widespread. | B8 |
