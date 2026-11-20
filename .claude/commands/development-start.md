@@ -45,19 +45,30 @@ Rules: every time you act on a card, end with a comment, because that comment ma
    - If the acceptance criteria aren't checkable, block the card right away (step 4b) and ask for them.
 
 ## 2. Start or resume
-- **It has a branch** (`show` prints it): `git checkout <branch>`, then `git merge origin/main` if main moved on.
+- **It has a branch** (`show` prints it; this covers `resume`, `answer` and `feedback`): run `npm run -s kanban -- sync <ID>`. It checks the branch out and merges in whatever is new on `origin/<branch>` and `origin/main` (see **Sync**). Handle its exit code before anything else.
 - **No branch:** `git checkout -b <id>-<slug> origin/main` (lower case, e.g. `x5-datalayer-audit`).
 - `npm run -s kanban -- set <ID> in_progress --branch <branch>`
 - Post a `progress` comment: branch, plan, or which feedback/answer you're addressing.
 
+## Sync: the card's branch must never be stale
+`npm run -s kanban -- sync <ID>` fetches, then fast-forwards to `origin/<branch>` (or merges it if the two have diverged), then merges `origin/main`. It only ever adds merge commits: no rebase, reset or force. That way commits the PM made on GitHub ("Update branch", a web edit, a pushed fix) are always kept. Run it when you resume a card that has a branch, **before every `git push`**, and at the start of deploy (4c). On a long card, that means at least one sync with `origin/main` before each push, so the PR never quietly goes stale.
+
+What to do with its exit code:
+- **0, synced:** carry on. If it printed incoming commits (from GitHub or from main), re-run `npm run typecheck && npm test && npm run build` before you continue, and post a `progress` comment saying what was merged in.
+- **5, conflict:** the merge was aborted and the tree is clean, and it lists the conflicting files. If the conflict is mechanical (no product decision: imports, adjacent edits, a moved line), redo the merge it names (`git merge --no-edit origin/<branch>` or `origin/main`), resolve it, commit the merge, re-run all checks and sync again. If resolving it means choosing between the PM's change and yours, or anything else that's a product decision, block the card (4b) with the conflicting files and the options. **Never deploy with a conflict.**
+- **6, uncommitted changes (left over after a crash):** if `git branch --show-current` is the card's branch, commit them as `WIP: <ID> recovered` and sync again. If you're on another branch or detached, stop and report the changes, because they may not belong to this card.
+- **1, other error:** read the message (no branch on the board, fetch failed, …), fix the cause, and retry once. If it still fails, block the card.
+
+**Push = sync, then push.** Never push without syncing first. If `git push` is rejected anyway (someone pushed in between), **never retry with `--force`**: sync and push again, at most twice. If it's still rejected, block the card (4b) and say so.
+
 ## 3. Build and verify
-- Implement the acceptance criteria, smallest coherent change first. Write tests in `tests/` alongside the code. Commit in small steps on the card's branch, and push when a step is done (`git push -u origin <branch>`).
+- Implement the acceptance criteria, smallest coherent change first. Write tests in `tests/` alongside the code. Commit in small steps on the card's branch, and push when a step is done (sync, then `git push -u origin <branch>`).
 - After each criterion is met and proven, tick it (`kanban -- check <ID> <n>`). Post a short `progress` comment at meaningful steps.
 - Stay inside the card. Note anything else you notice in the summary rather than fixing it.
 - Verify: `npm run typecheck && npm test && npm run build`, plus `npm run e2e` if you touched capture, the background worker or UI pages. Go through the acceptance criteria one by one, with the evidence for each.
 
 ## 4a. Done → Review (a pull request)
-1. `git push -u origin <branch>`
+1. Sync (`npm run -s kanban -- sync <ID>`, exit codes as in **Sync**), then `git push -u origin <branch>`.
 2. If the card has no open PR yet, open one:
    `gh pr create --base main --head <branch> --title "<ID>: <title>" --body-file <file>`
    The body starts with `Closes #<issue>` on its own line, then: what changed, each acceptance criterion as `- [x]` with its evidence, and anything the reviewer should look at. End it with the PR attribution line from your instructions.
@@ -75,7 +86,7 @@ Block when:
 - the change would break a hard limit in `CLAUDE.md`.
 
 Then:
-1. Commit the work in progress on the branch (`WIP: <ID> blocked: <reason>`) and `git push -u origin <branch>`.
+1. Commit the work in progress on the branch (`WIP: <ID> blocked: <reason>`), sync, and `git push -u origin <branch>`. If the sync itself conflicts, push the branch as it is (no sync merge) and list the conflicting files in the question.
 2. Write the question to a file in your scratchpad and post it: `npm run -s kanban -- comment <ID> --kind blocked --body-file <file>`
    ```
    <the one question you need answered, first line, specific>
@@ -88,9 +99,9 @@ Then:
 
 ## 4c. Deploy (the PM approved in a comment)
 "Deploy" means merging the card's PR into `main`. Only do this when `next` printed `deploy` for this card, and `show` shows the approval as a `pm` comment (not `outsider`) newer than your last comment.
-1. `git checkout <branch> && git merge origin/main`. If there's a conflict you can't resolve cleanly, don't deploy: post a `progress` comment explaining it, move the card back to In progress, and fix it as feedback.
+1. `npm run -s kanban -- sync <ID>`. This picks up anything the PM did on GitHub as well as `origin/main`. On exit 5, don't deploy: post a `progress` comment naming the conflicting files, move the card back to In progress, and resolve it as feedback (or block it if it needs a decision).
 2. Run the full checks again: `npm run typecheck && npm test && npm run build`, plus `npm run e2e` if the card touched capture, the worker or UI. If anything fails, **don't merge**: push the fix or post a `progress` comment saying what failed, and leave the card in Review.
-3. Push the branch. If there's no PR yet, open it as in 4a.
+3. Push the branch (sync first if anything changed since step 1). If there's no PR yet, open it as in 4a.
 4. `gh pr merge <PR> --merge`. The PR's `Closes #<issue>` closes the issue.
 5. `npm run -s kanban -- set <ID> done`. It refuses unless the PR is merged, which is the rule: **Done only when the PR is merged into `main`.**
 6. Post a `progress` comment: "Deployed: merged PR #n into main as `<sha>`." Then `git checkout --detach origin/main` and go back to step 1.
@@ -98,4 +109,4 @@ Then:
 ## 5. Run summary (when stopping)
 Print a short table: card, result (review / blocked / deployed), branch, PR, one line each. Then stop.
 
-Never merge a PR without the PM's approval comment on that card, never push to `main` directly, never close an issue by hand, never force-push, and never edit another card's branch.
+Never merge a PR without the PM's approval comment on that card, never push to `main` directly, never close an issue by hand, never force-push (a rejected push means sync and retry), and never edit another card's branch.
