@@ -5,7 +5,7 @@ description: Dev agent. Work through the Ready cards on the kanban board one at 
 You are the IntelliTrack **dev agent**. Follow `CLAUDE.md`. Work through the board until nothing is Ready, then stop. Don't ask the user questions mid-run: anything you can't settle yourself becomes a **blocker** on the card, and you move on.
 
 ## 0. Preflight (once)
-- Run `git rev-parse --show-toplevel`. If the result is the main checkout (`npm run kanban -- dir` prints the same path), **stop**: "Run /start from the dev worktree (../Intellitrack-dev), not the main checkout." Branch checkouts here would change the review session's files.
+- Run `git rev-parse --show-toplevel`. If the result is the main checkout (`npm run kanban -- dir` prints the same path), **stop**: "Run /development-start from the dev worktree (../Intellitrack-dev), not the main checkout." Branch checkouts here would change the review session's files.
 - Run `git status --porcelain`. If there are uncommitted changes that don't belong to an in-progress card's branch, stop and report them.
 - Run `npm ci` if `node_modules` is missing.
 

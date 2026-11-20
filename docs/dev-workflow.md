@@ -5,7 +5,7 @@ Two Claude Code sessions, one board.
 ```
  review session (main checkout, on main)            dev agent (../Intellitrack-dev worktree)
  ─────────────────────────────────────────           ────────────────────────────────────────
- write tasks/<ID>.md, set card → ready   ──board──▶  /start: next card → branch → build → test
+ write tasks/<ID>.md, set card → ready   ──board──▶  /development-start: next card → branch → build → test
  read Blocked questions, answer, → ready ◀──board──  blocked: WIP pushed + question in tasks/<ID>.md
  review branch, merge when you say so    ◀──git────  review: branch pushed + summary note
 ```
@@ -45,7 +45,7 @@ npm run kanban -- set B2 ready --prio -1         # jump the queue
 
 ```bash
 cd ~/Documents/Intellitrack-dev
-claude            # then type /start
+claude            # then type /development-start
 ```
 
 It loops until nothing is Ready, then prints a summary. Each finished card is a pushed branch. Each bottleneck is a Blocked card, and the agent doesn't wait on it: it moves to the next card. `.claude/settings.json` pre-approves the build, test, git and board commands. Force-push, `reset --hard` and pushing to `main` are denied.
