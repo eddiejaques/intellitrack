@@ -131,11 +131,12 @@ describe("release helpers", () => {
     expect(() => addChangelogEntry(t, "0.1.1", "2026-11-22", [])).toThrow(/already has a dated/);
   });
 
-  it("the repo's CHANGELOG has the 0.1.0 entry and a hand-written 0.2.0 entry for the first release", () => {
+  // Must also pass on the release commit itself (0.2.0 dated, package.json 0.2.0), or CI fails on the tag.
+  it("the repo's CHANGELOG has the 0.1.0 entry and a 0.2.0 entry covering the MVP, B1 and B26-B28", () => {
     const cl = readFileSync("CHANGELOG.md", "utf8");
     expect(cl).toMatch(/^## 0\.1\.0 \(\d{4}-\d{2}-\d{2}\)$/m);
-    expect(cl).toMatch(/^## 0\.2\.0 \(unreleased\)$/m);
-    for (const id of ["T0–T6", "B1", "B26", "B27", "B28"]) expect(cl).toContain(id);
-    expect(JSON.parse(readFileSync("package.json", "utf8")).version).toBe("0.1.0"); // `npm run release -- minor` makes it 0.2.0
+    const entry = /^## 0\.2\.0 \((?:unreleased|\d{4}-\d{2}-\d{2})\)$([\s\S]*?)(?=^## )/m.exec(cl);
+    expect(entry).not.toBeNull();
+    for (const id of ["T0–T6", "B1", "B26", "B27", "B28"]) expect(entry![1]).toContain(id);
   });
 });
