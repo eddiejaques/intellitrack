@@ -28,6 +28,17 @@ export function parseTaskFile(id, text) {
   return { id, item: head?.[1]?.trim() ?? id, type, size, why: "", deps: "", prio: "0", adhoc: true };
 }
 
+/** Skeleton for a new ad-hoc card. The PM fills Goal and Acceptance criteria before setting it ready. */
+export function newTaskTemplate(id, title, type = "feature", size = "S") {
+  return `# ${id}: ${title}\nType: ${type}\nSize: ${size}\n\n## Goal\n_Why this matters and for whom._\n\n## Acceptance criteria\n- [ ] _Checkable statement (a test, an e2e check, or something visible in the UI)._\n\n## Out of scope\n- \n\n## Notes\n`;
+}
+
+/** True when a card's Acceptance criteria section has at least one real (non-placeholder) checkbox. */
+export function hasCriteria(taskText = "") {
+  const sec = taskText.split(/^## /m).find((p) => /^Acceptance criteria/i.test(p)) ?? "";
+  return sec.split("\n").some((l) => /^\s*- \[[ x]\]\s+(?!_)\S/.test(l));
+}
+
 /** All cards with their column. taskFiles: { [id]: markdown } for every tasks/*.md (B- and X- ids). */
 export function loadCards(planText, rawState = {}, taskFiles = {}) {
   const state = Object.fromEntries(Object.entries(rawState).map(([k, v]) => [k, normEntry(v)]));
@@ -49,7 +60,7 @@ export function loadCards(planText, rawState = {}, taskFiles = {}) {
 
   const backlog = [...adhoc, ...planned].map((b) => {
     const s = state[b.id] ?? { status: "backlog" };
-    return { ...b, ...s, hasTask: b.id in taskFiles, prioNum: s.prio ?? (b.prio === "—" ? Infinity : Number(b.prio)) };
+    return { ...b, ...s, hasTask: b.id in taskFiles, hasCriteria: hasCriteria(taskFiles[b.id]), prioNum: s.prio ?? (b.prio === "—" ? Infinity : Number(b.prio)) };
   });
   return { mvp, backlog };
 }
@@ -109,7 +120,7 @@ export function render({ mvp, backlog }, taskFiles = {}) {
   L.push("## Board", "", "WIP limit: 1 card in progress. A card is Ready only with a `tasks/<ID>.md` holding checkable acceptance criteria.", "");
   col("In progress", [...mvp.filter((t) => t.status === "in_progress"), ...by("in_progress")], (b) => `${line(b)}${b.branch ? ` · \`${b.branch}\`` : ""}`);
   col("Blocked (needs you)", by("blocked"), (b) => `${line(b)}${b.branch ? ` · \`${b.branch}\`` : ""}\n  - ${blockerLine(taskFiles[b.id]) || b.note || "see tasks/" + b.id + ".md"}`);
-  col("Ready", readyCards(queue), (b) => `${line(b)} (${b.size})${b.hasTask ? "" : " ⚠ no tasks/" + b.id + ".md"}`);
+  col("Ready", readyCards(queue), (b) => `${line(b)} (${b.size})${!b.hasTask ? " ⚠ no tasks/" + b.id + ".md" : b.hasCriteria ? "" : " ⚠ no acceptance criteria"}`);
   col("Review", [...by("review"), ...mvp.filter((t) => t.status === "review")],
     (b) => b.mvp ? `${line(b)}: ${b.statusText}\n  - Gate still open: ${b.done}` : `${line(b)}${b.branch ? ` · \`${b.branch}\`` : ""}${b.note ? `\n  - ${b.note}` : ""}`);
   col("Done", [...mvp.filter((t) => t.status === "done"), ...by("done")]);

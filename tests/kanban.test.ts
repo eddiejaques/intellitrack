@@ -66,3 +66,15 @@ describe("kanban board", () => {
     expect(blockerLine("# X1")).toBe("");
   });
 });
+
+describe("new cards and the Ready gate", () => {
+  it("a scaffolded card has no real criteria until they're written", async () => {
+    // @ts-expect-error plain .mjs module without types
+    const { newTaskTemplate, hasCriteria } = await import("../scripts/kanban-lib.mjs");
+    const t = newTaskTemplate("X3", "Badge turns red", "ui", "S");
+    expect(t).toMatch(/^# X3: Badge turns red\nType: ui\nSize: S/);
+    expect(hasCriteria(t)).toBe(false);
+    expect(hasCriteria(t.replace("- [ ] _Checkable", "- [ ] Badge is red when silentGa4 is non-empty\n- [ ] _Checkable"))).toBe(true);
+    expect(hasCriteria("## Notes\n- [ ] not criteria")).toBe(false);
+  });
+});

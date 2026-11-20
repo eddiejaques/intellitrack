@@ -3,8 +3,8 @@
 IntelliTrack is a Chrome MV3 extension that captures marketing tags (GA4 first) while you browse and audits them with your own LLM. The spec is `plan.md`, the board is `kanban.md`, and usage is in `README.md` and `docs/workflows.md`.
 
 ## Two sessions, two roles
-- **Review/planning session** runs in the main checkout (`/Users/gauravkumardani/Documents/Intellitrack`) and stays on `main`. It writes cards (`tasks/<ID>.md`), answers blockers, reviews branches, and merges to `main` only when the user asks.
-- **Dev session** runs in the worktree `../Intellitrack-dev` via `/development-start`. It takes cards one at a time, works on a branch per card, and pushes the branch. It **never merges to `main`**.
+- **Review mode** (`/review-start` … `/review-stop`): the user as product manager, in the main checkout (`/Users/gauravkumardani/Documents/Intellitrack`), always on `main`. No product code is edited there. It writes cards (`tasks/<ID>.md`), answers blockers, reviews branches, and merges to `main` only when the user asks.
+- **Dev agent** (`/development-start`) runs in the worktree `../Intellitrack-dev`, set up with `sh scripts/setup-dev-worktree.sh`. It sits detached at `main`, because `main` is checked out in the main checkout. It takes cards one at a time, works on a branch per card, and pushes the branch. It **never merges to `main`**.
 
 ## Board
 - The board lives in the main checkout: `plan.md`, `tasks/`, `kanban.state.json`, `kanban.md`. `npm run kanban` finds it from any worktree.

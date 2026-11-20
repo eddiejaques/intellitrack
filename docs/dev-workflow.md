@@ -1,6 +1,11 @@
 # Working on IntelliTrack: dev agent + review session
 
-Two Claude Code sessions, one board.
+Two Claude Code sessions, one board. Each has a start command:
+
+| Session | Folder | Start | Stop |
+|---|---|---|---|
+| **Review mode** (you, as product manager) | `~/Documents/Intellitrack` (on `main`) | `/review-start` | `/review-stop` |
+| **Dev agent** | `~/Documents/Intellitrack-dev` | `/development-start` | stops by itself when nothing is Ready |
 
 ```
  review session (main checkout, on main)            dev agent (../Intellitrack-dev worktree)
@@ -16,8 +21,7 @@ The board files (`plan.md`, `tasks/`, `kanban.state.json`, `kanban.md`) live in 
 
 ```bash
 cd ~/Documents/Intellitrack
-git worktree add ../Intellitrack-dev main
-cd ../Intellitrack-dev && npm ci
+sh scripts/setup-dev-worktree.sh     # creates ../Intellitrack-dev (detached at main), npm ci, dev-only git limits
 npx playwright install chromium      # browser for npm run e2e, if not installed yet
 ```
 
@@ -37,7 +41,8 @@ Cards are backlog items (`B<n>`, from plan.md) or ad-hoc cards (`X<n>`, a `tasks
 ```bash
 npm run kanban                                   # regenerate kanban.md
 npm run kanban -- next                           # what the agent picks next
-npm run kanban -- set X3 ready                   # move a card
+npm run kanban -- new "Badge turns red" --type ui # scaffold tasks/X<n>.md
+npm run kanban -- set X3 ready                   # move a card (needs acceptance criteria)
 npm run kanban -- set B2 ready --prio -1         # jump the queue
 ```
 
@@ -48,15 +53,28 @@ cd ~/Documents/Intellitrack-dev
 claude            # then type /development-start
 ```
 
-It loops until nothing is Ready, then prints a summary. Each finished card is a pushed branch. Each bottleneck is a Blocked card, and the agent doesn't wait on it: it moves to the next card. `.claude/settings.json` pre-approves the build, test, git and board commands. Force-push, `reset --hard` and pushing to `main` are denied.
+It loops until nothing is Ready, then prints a summary. Each finished card is a pushed branch. Each bottleneck is a Blocked card, and the agent doesn't wait on it: it moves to the next card. `.claude/settings.json` pre-approves the build, test, git and board commands. Force-push and `reset --hard` are denied everywhere. Pushing or merging to `main` is also denied in the dev folder (`.claude/settings.local.json`, written by the setup script).
 
-## In the review session
+## Review mode (product manager)
 
-Say it in plain words:
-- **"add a task: …"**: I write `tasks/X<n>.md` (goal, acceptance criteria, out of scope) and set it to `ready`.
-- **"what's blocked?"**: I list the Blocked questions. You answer, I append `## Answer` to the card and set it back to `ready`. The agent resumes on the same branch.
-- **"review B2"**: I diff the branch against `main`, rerun the checks and the criteria, and report.
-- **"merge B2"**: I merge to `main`, push, set the card to `done` and commit the board.
+```bash
+cd ~/Documents/Intellitrack
+claude            # then type /review-start
+```
+
+`/review-start` gives a briefing: blocked questions first, then branches waiting for review, the Ready queue, and the next backlog items to refine. After that, say it in plain words:
+- **"add a task: …"**: I scaffold `tasks/X<n>.md` (`npm run kanban -- new`) and write the goal, checkable acceptance criteria and out of scope from the code. I show it to you and set it `ready` when you say so.
+- **"refine B5"** or **"B3 should also cover forms"**: I write or update the card. Cards that already have a branch get a dated `## Change` section, so the agent sees what moved.
+- **"B5 before B3"** or **"do X2 next"**: I re-prioritise (`--prio`, or the plan.md §9 order).
+- **"what's blocked?"** then your answer: I append `## Answer` and set the card `ready`. The agent resumes on the same branch.
+- **"review B2"**: I diff the branch, run the checks in a throwaway worktree, and go through each criterion. Changes needed go back to the agent as `## Review feedback`.
+- **"merge B2"**: I merge to `main`, push, and mark the card `done`.
+
+Review mode doesn't edit product code. A code change you ask for becomes a card.
+
+`/review-stop` commits and pushes the board and plan changes from the session, then lists what's still open.
+
+A card can only be set `ready` once it has at least one real `- [ ]` acceptance criterion. This stops placeholder cards reaching the agent.
 
 ## Checks every card must pass
 

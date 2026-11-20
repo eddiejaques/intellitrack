@@ -5,11 +5,12 @@
 //   npm run kanban -- next                  print the card the dev agent should work on (ID<TAB>title), or nothing
 //   npm run kanban -- set B2 ready          move a card (backlog|ready|in_progress|blocked|review|done)
 //   npm run kanban -- set B2 review --branch b2-datalayer --note "summary"
+//   npm run kanban -- new "Title" --type bug --size S   scaffold tasks/X<n>.md (stays in backlog until set ready)
 //   npm run kanban -- dir                   print the board directory
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { STATUSES, loadCards, nextCard, normEntry, render } from "./kanban-lib.mjs";
+import { STATUSES, loadCards, newTaskTemplate, nextCard, normEntry, render } from "./kanban-lib.mjs";
 
 function boardDir() {
   if (process.env.KANBAN_DIR) return process.env.KANBAN_DIR;
@@ -51,8 +52,13 @@ else if (cmd === "next") {
     process.exit(2);
   }
   const { backlog } = load();
-  if (!backlog.some((b) => b.id === id)) {
+  const card = backlog.find((b) => b.id === id);
+  if (!card) {
     console.error(`unknown card ${id}: add a plan.md §9 row or tasks/${id}.md first`);
+    process.exit(2);
+  }
+  if (status === "ready" && !card.hasCriteria && !args.includes("--force")) {
+    console.error(`${id} can't be ready: tasks/${id}.md needs at least one acceptance criterion ("- [ ] …"). Use --force to override.`);
     process.exit(2);
   }
   const flag = (name) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
@@ -63,6 +69,21 @@ else if (cmd === "next") {
   state[id] = entry;
   writeFileSync(STATE, JSON.stringify(state, null, 2) + "\n");
   console.log(`${id} -> ${status}`);
+  regenerate();
+} else if (cmd === "new") {
+  // new "Title" [--type bug] [--size S]: scaffold tasks/X<n>.md with the next free number, status backlog
+  const title = args.find((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
+  if (!title) {
+    console.error('usage: new "Title" [--type bug|feature|ui|…] [--size S|M|L]');
+    process.exit(2);
+  }
+  const flag = (name, d) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : d; };
+  const d = join(DIR, "tasks");
+  mkdirSync(d, { recursive: true });
+  const n = Math.max(0, ...readdirSync(d).map((f) => Number(/^X(\d+)\.md$/.exec(f)?.[1] ?? 0))) + 1;
+  const id = `X${n}`;
+  writeFileSync(join(d, `${id}.md`), newTaskTemplate(id, title, flag("type", "feature"), flag("size", "S")));
+  console.log(`${id}\t${join(d, `${id}.md`)}`);
   regenerate();
 } else {
   console.error(`unknown command ${cmd}`);
