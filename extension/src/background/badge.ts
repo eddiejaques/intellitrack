@@ -1,3 +1,4 @@
+import { selectedEventCount } from "../shared/vendors";
 import type { SessionMeta } from "../shared/types";
 
 const GREEN = "#15803d";
@@ -15,12 +16,12 @@ export function badgeText(count: number): string {
  * count always comes from chrome.storage.session and never from in-memory state.
  * Never throws: a closed tab or a missing chrome.action must not break capture.
  */
-export async function applyBadge(s: Pick<SessionMeta, "tabId" | "eventCount" | "status"> | undefined): Promise<void> {
+export async function applyBadge(s: Pick<SessionMeta, "tabId" | "eventCount" | "status" | "vendors" | "vendor_counts"> | undefined): Promise<void> {
   if (!s) return;
   try {
     const action = chrome.action;
     if (!action) return;
-    await action.setBadgeText({ tabId: s.tabId, text: badgeText(s.eventCount) });
+    await action.setBadgeText({ tabId: s.tabId, text: badgeText(selectedEventCount(s)) });
     await action.setBadgeBackgroundColor({ tabId: s.tabId, color: s.status === "recording" ? GREEN : GREY });
   } catch {
     /* tab closed or API unavailable */

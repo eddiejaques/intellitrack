@@ -1,6 +1,7 @@
 import { vendors } from "../vendors";
 import { looksLikeTag } from "../vendors/tagHint";
 import type { Marker, RawRequest, SessionMeta } from "../shared/types";
+import { DEFAULT_VENDORS } from "../shared/vendors";
 import { applyBadge, clearBadge } from "./badge";
 import { patchRequest, putEvents, putRequest, putSession, updateTransport, type StoredEvent } from "./store";
 
@@ -52,6 +53,16 @@ function serialize<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
+/** The user's default vendor choice (set in the popup). Falls back to GA4. */
+export async function defaultVendors(): Promise<string[]> {
+  try {
+    const r = await chrome.storage.local.get("default_vendors");
+    const v = r.default_vendors;
+    if (Array.isArray(v) && v.every((x) => typeof x === "string")) return v as string[];
+  } catch { /* storage unavailable */ }
+  return DEFAULT_VENDORS;
+}
+
 export function startSession(tabId: number): Promise<SessionMeta> {
   return serialize(async () => {
     const prev = await loadSession();
@@ -77,6 +88,8 @@ export function startSession(tabId: number): Promise<SessionMeta> {
       nextReq: 1,
       markers: [],
       plan_calls: 0,
+      vendors: await defaultVendors(),
+      vendor_counts: {},
       site: o ? { origin: o, host, title: tab.title?.slice(0, 120), url: tab.url?.split("#")[0].slice(0, 300) } : undefined,
     };
     await saveSession(s);
@@ -166,6 +179,7 @@ export function handleRequest(req: RawRequest): Promise<void> {
           return { ...p, id, t, page: { ...p.page, step }, raw_ref: rawRef, sessionId: s.id, requestId: req.requestId, key: `${s.id}/${id}` };
         });
         s.eventCount += rows.length;
+        s.vendor_counts = { ...s.vendor_counts, [matcher.id]: (s.vendor_counts?.[matcher.id] ?? 0) + rows.length };
       }
     }
 

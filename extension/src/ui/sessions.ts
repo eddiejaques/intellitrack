@@ -1,5 +1,6 @@
 import type { SessionSummary } from "../shared/types";
 import { fmtDuration, fmtWhen, guardWorker, pageUrl, send, siteLabel } from "./session";
+import { selectedEventCount, sessionVendors, vendorLabel } from "../shared/vendors";
 
 type K = string | HTMLElement;
 function h(tag: string, cls = "", ...kids: K[]): HTMLElement {
@@ -25,6 +26,14 @@ function scoreEl(r: SessionSummary["report"]): HTMLElement {
   return h("span", `score ${r.score >= 85 ? "good" : r.score >= 60 ? "mid" : "bad"}`, String(r.score));
 }
 
+/** One chip per vendor seen; vendors left out of the audit are muted. No events at all: say so. */
+function vendorChips(s: SessionSummary["session"]): HTMLElement[] {
+  const sel = sessionVendors(s);
+  const counts = s.vendor_counts ?? (s.eventCount ? { ga4: s.eventCount } : {});
+  const chips = Object.entries(counts).filter(([, n]) => n > 0).map(([v, n]) => chip(`${vendorLabel(v)} · ${n}`, sel.includes(v) ? "accent" : "no_data"));
+  return chips.length ? chips : [chip("0 events", "missing")];
+}
+
 function sessionRow(x: SessionSummary): HTMLElement {
   const s = x.session;
   const rec = s.status === "recording";
@@ -38,13 +47,13 @@ function sessionRow(x: SessionSummary): HTMLElement {
     h("span", `dot ${rec ? "rec" : "done"}`),
     h("div", "",
       h("div", "row wrap", h("span", "when", fmtWhen(s.startedAt)), h("span", "muted", `· ${rec ? "recording" : fmtDuration(s)}`), s.plan ? chip(s.plan.site_type.replace("_", " "), "accent") : h("span")),
-      h("div", "meta", chip(`${s.eventCount} events`, s.eventCount ? "accent" : "missing"), chip(`${s.request_count ?? 0} tag requests`),
+      h("div", "meta", ...vendorChips(s), chip(`${s.request_count ?? 0} tag requests`),
         (s.unrecognized_count ?? 0) ? chip(`${s.unrecognized_count} not parsed`, "partial") : h("span"),
         s.site?.title ? h("span", "muted", s.site.title) : h("span"))),
     h("div", "side", scoreEl(x.report),
       link("Log", "viewer.html", s.id),
       x.report ? link("Report", "report.html", s.id, "btn secondary sm") : h("span"),
-      s.eventCount > 0 ? link(x.report ? "Re-audit with LLM" : "Run LLM audit", "preview.html", s.id, x.report ? "btn ghost sm" : "btn primary sm") : h("span"),
+      selectedEventCount(s) > 0 ? link(x.report ? "Re-audit with LLM" : "Run LLM audit", "preview.html", s.id, x.report ? "btn ghost sm" : "btn primary sm") : h("span"),
       del));
 }
 

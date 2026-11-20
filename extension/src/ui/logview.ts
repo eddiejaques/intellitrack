@@ -1,6 +1,9 @@
 import type { StoredEvent } from "../background/store";
 import type { Message, RequestRow, SessionMeta } from "../shared/types";
-import { fmtDuration, fmtWhen, guardWorker, pageUrl, resolveSession, siteLabel } from "./session";
+import { fmtDuration, fmtWhen, guardWorker, resolveSession, siteLabel } from "./session";
+import { saveVendors, vendorPicker } from "./vendorPicker";
+import { selectedEventCount, sessionVendors, vendorLabel } from "../shared/vendors";
+import { guessVendor } from "../vendors/tagHint";
 
 const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
 
@@ -33,8 +36,12 @@ function paramTable(sp: URLSearchParams, title = ""): HTMLElement {
   return h("div", "", title ? h("div", "muted", title) : h("span"), rows.length ? tb : h("div", "muted", "no parameters"));
 }
 
-function vendorChip(v: string): HTMLElement {
-  return v === "unrecognized" ? chip("not parsed", "partial") : chip(v, "accent");
+function vendorChip(v: string, url?: string, selected = true): HTMLElement {
+  if (v === "unrecognized") {
+    const guess = url ? guessVendor(url) : undefined;
+    return chip(guess ? `not parsed · ${guess}` : "not parsed", "partial");
+  }
+  return chip(selected ? vendorLabel(v) : `${vendorLabel(v)} (left out)`, selected ? "accent" : "no_data");
 }
 
 function statusChip(r: { status?: number; error?: string }): HTMLElement {
@@ -51,12 +58,12 @@ function expandable(summary: HTMLElement, detail: () => HTMLElement): HTMLElemen
   return [summary, d];
 }
 
-function tagRow(r: RequestRow): HTMLElement[] {
+function tagRow(r: RequestRow, selected: string[]): HTMLElement[] {
   let path = r.url;
   try { const u = new URL(r.url); path = u.pathname + (u.search ? "?…" : ""); } catch { /* keep raw */ }
   const row = h("tr", "",
     h("td", "mono muted nowrap", fmtT(r.t)),
-    h("td", "", h("div", "row", vendorChip(r.vendor), h("span", "mono muted", r.method)), h("div", "host", r.host), h("div", "muted mono path", path)),
+    h("td", "", h("div", "row wrap", vendorChip(r.vendor, r.url, r.vendor === "unrecognized" || selected.includes(r.vendor)), h("span", "mono muted", r.method)), h("div", "host", r.host), h("div", "muted mono path", path)),
     h("td", "", statusChip(r)));
   return expandable(row, () => {
     const kids: K[] = [h("div", "mono wrap-url", r.url)];
@@ -70,7 +77,7 @@ function tagRow(r: RequestRow): HTMLElement[] {
 function eventRow(e: StoredEvent): HTMLElement[] {
   const row = h("tr", "",
     h("td", "mono muted nowrap", fmtT(e.t)),
-    h("td", "", h("div", "row wrap", h("strong", "", e.event), e.page.step ? chip(e.page.step) : h("span")), h("div", "row wrap", chip(e.vendor, "accent"), chip(e.property ?? "", "mono"))),
+    h("td", "", h("div", "row wrap", h("strong", "", e.event), e.page.step ? chip(e.page.step) : h("span")), h("div", "row wrap", chip(vendorLabel(e.vendor), "accent"), chip(e.property ?? "", "mono"))),
     h("td", "", statusChip(e.transport)));
   return expandable(row, () => h("div", "stack",
     h("div", "muted", `${e.id} · ${e.page.path ?? ""}`),
@@ -96,6 +103,7 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
   let timer: number | undefined;
 
   const summary = h("div", "row wrap");
+  const pickers = h("div", "");
   const tabs = h("div", "seg");
   const search = h("input") as HTMLInputElement;
   search.type = "text";
@@ -107,7 +115,7 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
   unparsedBox.addEventListener("change", () => { onlyUnparsed = unparsedBox.checked; paint(); });
   const toolbar = h("div", "row", search, h("label", "row muted nowrap", unparsedBox, "Not parsed only"));
   const body = h("div", "card table-card scroll");
-  root.replaceChildren(h("div", "stack", summary, tabs, toolbar, body));
+  root.replaceChildren(h("div", "stack", summary, pickers, tabs, toolbar, body));
 
   async function load() {
     session = await resolveSession();
@@ -131,24 +139,35 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
       session ? h("strong", "", siteLabel(session)) : h("span"),
       session ? h("span", "muted", `${fmtWhen(session.startedAt)} · ${fmtDuration(session)}`) : h("span"),
       h("span", `chip ${rec ? "missing" : ""}`.trim(), rec ? "● recording" : session ? "stopped" : "no session"),
-      chip(`${events.length} events`, "accent"), chip(`${requests.length} tag requests`), unparsed ? chip(`${unparsed} not parsed`, "partial") : h("span"));
+      chip(`${selectedEventCount(session ?? { eventCount: 0 })} events`, "accent"), chip(`${requests.length} tag requests`), unparsed ? chip(`${unparsed} not parsed`, "partial") : h("span"));
+    if (session) {
+      const sel = sessionVendors(session);
+      const counts: Record<string, number> = {};
+      for (const e of events) counts[e.vendor] = (counts[e.vendor] ?? 0) + 1;
+      pickers.replaceChildren(vendorPicker(sel, counts, async (next) => {
+        await saveVendors(next, { sessionId: session!.id });
+        await load();
+      }, "Audit"));
+    } else pickers.replaceChildren();
 
     const mk = (id: "tags" | "events", label: string) => {
       const b = h("button", `seg-btn ${tab === id ? "on" : ""}`.trim(), label);
       b.addEventListener("click", () => { tab = id; paint(); });
       return b;
     };
-    tabs.replaceChildren(mk("tags", `Tags · ${requests.length}`), mk("events", `Events · ${events.length}`));
+    tabs.replaceChildren(mk("tags", `Tags · ${requests.length}`), mk("events", `Events · ${session ? selectedEventCount(session) : 0}`));
     unparsedBox.parentElement!.classList.toggle("hide", tab !== "tags");
 
     const match = (...parts: (string | undefined)[]) => !filter || parts.some((p) => (p ?? "").toLowerCase().includes(filter));
     if (tab === "tags") {
+      const sel = session ? sessionVendors(session) : [];
       const rows = requests.filter((r) => (!onlyUnparsed || r.vendor === "unrecognized") && match(r.url, r.vendor, r.host, r.body));
       body.replaceChildren(rows.length
-        ? h("table", "", h("thead", "", h("tr", "", ...["Time", "Request", "Status"].map((t) => h("th", "", t)))), h("tbody", "", ...rows.flatMap(tagRow)))
+        ? h("table", "", h("thead", "", h("tr", "", ...["Time", "Request", "Status"].map((t) => h("th", "", t)))), h("tbody", "", ...rows.flatMap((r) => tagRow(r, sel))))
         : empty(rec, requests.length > 0));
     } else {
-      const rows = events.filter((e) => match(e.event, e.vendor, e.property, e.page.path));
+      const sel = session ? sessionVendors(session) : [];
+      const rows = events.filter((e) => sel.includes(e.vendor) && match(e.event, e.vendor, e.property, e.page.path));
       body.replaceChildren(rows.length
         ? h("table", "", h("thead", "", h("tr", "", ...["Time", "Event", "Status"].map((t) => h("th", "", t)))), h("tbody", "", ...rows.flatMap(eventRow)))
         : empty(rec, events.length > 0));

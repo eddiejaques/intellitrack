@@ -29,3 +29,31 @@ export function looksLikeTag(url: string, type = "other"): boolean {
   if (TRACKER_HOST.test(u.hostname)) return true;
   return TAG_PATH.test(u.pathname);
 }
+
+/** Best-effort name for an unparsed tag request, so the raw log is readable. Not a parser. */
+const GUESSES: [RegExp, string][] = [
+  [/(^|\.)(google-analytics\.com|analytics\.google\.com)$/i, "Google Analytics"],
+  [/(^|\.)googletagmanager\.com$/i, "Google Tag Manager"],
+  [/(^|\.)(doubleclick\.net|googleadservices\.com)$/i, "Google Ads / DV360"],
+  [/(^|\.)facebook\.(com|net)$/i, "Meta"],
+  [/(^|\.)tiktok\.com$/i, "TikTok"],
+  [/(^|\.)bing\.com$/i, "Microsoft Ads"],
+  [/(^|\.)criteo\.(com|net)$/i, "Criteo"],
+  [/(^|\.)pinterest\.com$/i, "Pinterest"],
+  [/(^|\.)(linkedin|licdn)\.com$/i, "LinkedIn"],
+  [/(^|\.)(snapchat\.com|sc-static\.net)$/i, "Snapchat"],
+  [/(^|\.)(omtrdc\.net|demdex\.net|2o7\.net|adobedc\.net)$/i, "Adobe"],
+  [/(^|\.)(segment\.(io|com))$/i, "Segment"],
+  [/(^|\.)(braze\.com|appboy\.com)$/i, "Braze"],
+  [/(^|\.)hotjar\.(com|io)$/i, "Hotjar"],
+  [/(^|\.)clarity\.ms$/i, "Microsoft Clarity"],
+  [/(^|\.)(taboola|outbrain)\.com$/i, "Native ads"],
+  [/(^|\.)nr-data\.net$|(^|\.)newrelic\.com$/i, "New Relic"],
+];
+export function guessVendor(url: string): string | undefined {
+  try {
+    const u = new URL(url);
+    for (const [re, name] of GUESSES) if (re.test(u.hostname)) return name === "Google Analytics" && !/\/g\/collect/.test(u.pathname) && /\/collect/.test(u.pathname) ? "Universal Analytics (legacy)" : name;
+  } catch { /* ignore */ }
+  return undefined;
+}

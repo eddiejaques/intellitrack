@@ -13,7 +13,8 @@ import {
   stopSession,
   updateSession,
 } from "./capture";
-import { deleteSession, getEvents, getReport, getRequests, getSession, listReports, listSessions, putReport } from "./store";
+import { VENDOR_OPTIONS } from "../shared/vendors";
+import { deleteSession, putSession, getEvents, getReport, getRequests, getSession, listReports, listSessions, putReport } from "./store";
 import { createProvider, testConnection } from "../llm";
 import { loadConfig } from "../llm/config";
 import { getConsent, setConsent } from "../llm/consent";
@@ -88,6 +89,19 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
 chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
   (async () => {
     switch (msg.type) {
+      case "setVendors": {
+        const list = [...new Set(msg.vendors)].filter((v) => VENDOR_OPTIONS.some((o) => o.id === v));
+        if (msg.asDefault) await chrome.storage.local.set({ default_vendors: list });
+        if (msg.sessionId) {
+          const cur = await loadSession();
+          if (cur?.id === msg.sessionId) await updateSession((s) => { s.vendors = list; });
+          else {
+            const old = await getSession(msg.sessionId);
+            if (old) await putSession({ ...old, vendors: list });
+          }
+        }
+        return list;
+      }
       case "hello":
         return { build: __BUILD_ID__ };
       case "start":

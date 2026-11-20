@@ -1,6 +1,8 @@
 import { liveChecklist } from "../planner/plan";
 import { loadConfig, validateConfig } from "../llm/config";
 import { guardWorker, pageUrl } from "./session";
+import { saveVendors, vendorPicker } from "./vendorPicker";
+import { DEFAULT_VENDORS, selectedEventCount, sessionVendors } from "../shared/vendors";
 import type { PlanResult } from "../background/planner";
 import type { StoredEvent } from "../background/store";
 import type { CoverageEntry, Message, SessionMeta } from "../shared/types";
@@ -27,6 +29,8 @@ let events: StoredEvent[] = [];
 /** transient planner UI state: consent prompt, confirm prompt, manual picker or an error */
 let planUi: PlanResult | undefined;
 let planning = false;
+/** the default choice for the next session, shown while nothing is recording */
+let defaultVendors: string[] = DEFAULT_VENDORS;
 
 // ---------------------------------------------------------------- planning
 async function requestPlan(confirmed = false) {
@@ -152,7 +156,13 @@ function render() {
   const rec = session?.status === "recording";
   $("status").textContent = rec ? "Recording" : session ? "Stopped" : "Ready";
   $("dot").className = `dot ${rec ? "rec" : session ? "done" : ""}`;
-  $("count").textContent = String(session?.eventCount ?? 0);
+  $("count").textContent = String(session ? selectedEventCount(session) : 0);
+  const chosen = session ? sessionVendors(session) : defaultVendors;
+  $("vendors").replaceChildren(vendorPicker(chosen, session?.vendor_counts, async (next) => {
+    await saveVendors(next, { sessionId: session?.id, asDefault: true });
+    defaultVendors = next;
+    await refresh();
+  }, "Audit"));
   const t = $<HTMLButtonElement>("toggle");
   t.textContent = rec ? "Stop recording" : "Start recording";
   t.className = `btn block ${rec ? "secondary" : "primary"}`;
@@ -169,6 +179,7 @@ async function refresh() {
   if (refreshing) return;
   refreshing = true;
   try {
+    try { const r = await chrome.storage.local.get("default_vendors"); if (Array.isArray(r.default_vendors)) defaultVendors = r.default_vendors; } catch { /* ignore */ }
     session = await send<SessionMeta | undefined>({ type: "getState" });
     events = session?.plan ? await send<StoredEvent[]>({ type: "getEvents", sessionId: session.id }) : [];
   } finally {
