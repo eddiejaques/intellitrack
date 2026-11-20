@@ -2,7 +2,7 @@ import type { StoredEvent } from "../background/store";
 import type { Message, RequestRow, SessionMeta } from "../shared/types";
 import { fmtDuration, fmtWhen, guardWorker, resolveSession, siteLabel } from "./session";
 import { saveVendors, vendorPicker } from "./vendorPicker";
-import { selectedEventCount, sessionVendors, vendorLabel } from "../shared/vendors";
+import { selectedEventCount, sessionVendors, silentGa4, vendorLabel } from "../shared/vendors";
 import { guessVendor } from "../vendors/tagHint";
 
 const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
@@ -137,12 +137,23 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
     const rec = session?.status === "recording";
     const unparsed = requests.filter((r) => r.vendor === "unrecognized").length;
     const un = session?.unattributed;
-    note.replaceChildren(...(un?.count ? [h("div", "note warn", `${un.count} GA4/Ads hit(s) came from a service worker or another browsing context and could not be tied to this tab, so they are not counted. Initiator(s): ${un.initiators.join(", ")}.`)] : []));
+    const notes: HTMLElement[] = [];
+    const silent = session ? silentGa4(session.tag_loads, events) : [];
+    if (silent.length) {
+      const gtm = Object.keys(session!.tag_loads ?? {}).filter((id) => id.startsWith("GTM-"));
+      notes.push(h("div", "note warn",
+        `GA4 ${silent.join(", ")} loaded on this page but sent no GA4 hits while recording${rec ? " (so far)" : ""}. `,
+        "Typical causes: the GA4 tag waits for cookie consent, its trigger never fired, or it is misconfigured",
+        gtm.length ? ` in ${gtm.join(", ")}` : "", ". Google's tag may still send ccm pings, which are not GA4 hits."));
+    }
+    if (un?.count) notes.push(h("div", "note warn", `${un.count} GA4/Ads hit(s) came from a service worker or another browsing context and could not be tied to this tab, so they are not counted. Initiator(s): ${un.initiators.join(", ")}.`));
+    note.replaceChildren(...notes);
     summary.replaceChildren(
       session ? h("strong", "", siteLabel(session)) : h("span"),
       session ? h("span", "muted", `${fmtWhen(session.startedAt)} · ${fmtDuration(session)}`) : h("span"),
       h("span", `chip ${rec ? "missing" : ""}`.trim(), rec ? "● recording" : session ? "stopped" : "no session"),
       (session?.tabIds?.length ?? 0) > 1 ? chip(`${session!.tabIds!.length} tabs`, "accent") : h("span"),
+      ...Object.keys(session?.tag_loads ?? {}).map((id) => chip(`${id} loaded`, "mono")),
       chip(`${selectedEventCount(session ?? { eventCount: 0 })} events`, "accent"), chip(`${requests.length} tag requests`), unparsed ? chip(`${unparsed} not parsed`, "partial") : h("span"));
     if (session) {
       const sel = sessionVendors(session);

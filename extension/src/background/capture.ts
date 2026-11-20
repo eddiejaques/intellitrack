@@ -186,6 +186,25 @@ function belongsToSession(s: SessionMeta, req: Pick<RawRequest, "tabId" | "initi
 }
 
 /** Quick pre-filter so we don't touch the session store for unrelated traffic. */
+/**
+ * The ID in a Google tag library URL (gtag/js?id=G-..., gtm.js?id=GTM-...), on Google's host or a
+ * first-party one. A loaded GA4 tag that never sends a hit is a fault we can only see from this.
+ */
+const TAG_LIBRARY = /\/(?:gtag\/js|gtm\.js)\?(?:[^#]*&)?id=((?:G|GTM|AW|GT|DC)-[A-Za-z0-9]+)/i;
+export function tagLibraryId(url: string): string | undefined {
+  return TAG_LIBRARY.exec(url)?.[1]?.toUpperCase();
+}
+
+export function noteTagLoad(req: Pick<RawRequest, "url" | "tabId" | "initiator">): Promise<void> {
+  return serialize(async () => {
+    const id = tagLibraryId(req.url);
+    const s = await loadSession();
+    if (!id || !s || s.status !== "recording" || !belongsToSession(s, req)) return;
+    s.tag_loads = { ...s.tag_loads, [id]: (s.tag_loads?.[id] ?? 0) + 1 };
+    await saveSession(s);
+  });
+}
+
 export function mightBeTracking(url: string, type?: string): boolean {
   return vendors.some((v) => v.urlHint.test(url)) || looksLikeTag(url, type);
 }

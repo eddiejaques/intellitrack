@@ -3,7 +3,7 @@ import { loadConfig, validateConfig } from "../llm/config";
 import { sessionPlan } from "../planner/plan";
 import { fmtDuration, fmtWhen, guardWorker, pageUrl, resolveSession, siteLabel } from "./session";
 import { saveVendors, vendorPicker } from "./vendorPicker";
-import { sessionVendors } from "../shared/vendors";
+import { sessionVendors, silentGa4 } from "../shared/vendors";
 import type { StoredEvent } from "../background/store";
 import type { AuditReport, JourneyPlan, Message, Payload, RequestRow, SessionMeta } from "../shared/types";
 
@@ -97,7 +97,7 @@ async function run(useLLM: boolean) {
   $("run-msg").textContent = useLLM ? "Waiting for your LLM…" : "Building report…";
   try {
     // The payload object that was previewed is the one sent: nothing is rebuilt in between.
-    const diagnostics = { unattributed: session!.unattributed?.count, tag_requests: requests.length, not_parsed: requests.filter((r) => r.vendor === "unrecognized").length, duration_s: payload.session.duration_s };
+    const diagnostics = { silent_ga4: silentGa4(session!.tag_loads, events), unattributed: session!.unattributed?.count, tag_requests: requests.length, not_parsed: requests.filter((r) => r.vendor === "unrecognized").length, duration_s: payload.session.duration_s };
     const r = (await chrome.runtime.sendMessage({ type: "audit", sessionId: session!.id, payload, useLLM, diagnostics } satisfies Message)) as AuditReport | { error: string };
     if ("error" in r) throw new Error(r.error);
     location.href = pageUrl("report.html", session!.id);

@@ -17,3 +17,9 @@ export function selectedEventCount(s: Pick<SessionMeta, "eventCount" | "vendor_c
   const sel = new Set(sessionVendors(s));
   return Object.entries(s.vendor_counts).reduce((n, [v, c]) => n + (sel.has(v) ? c : 0), 0);
 }
+
+/** GA4 measurement IDs whose tag library loaded but which produced no GA4 events. */
+export function silentGa4(tagLoads: Record<string, number> | undefined, events: { vendor: string; property?: string }[]): string[] {
+  const seen = new Set(events.filter((e) => e.vendor === "ga4").map((e) => (e.property ?? "").toUpperCase()));
+  return Object.keys(tagLoads ?? {}).filter((id) => id.startsWith("G-") && !seen.has(id));
+}
