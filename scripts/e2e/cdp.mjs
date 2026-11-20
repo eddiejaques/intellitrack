@@ -9,12 +9,17 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function findChrome() {
   if (process.env.CHROME) return process.env.CHROME;
-  const base = join(process.env.HOME ?? "", "Library/Caches/ms-playwright");
-  const dirs = existsSync(base) ? readdirSync(base).filter((d) => /^chromium-\d+$/.test(d)).sort().reverse() : [];
-  for (const d of dirs) {
-    for (const arch of ["chrome-mac-arm64", "chrome-mac"]) {
-      const p = join(base, d, arch, "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing");
-      if (existsSync(p)) return p;
+  // where `npx playwright install chromium` puts Chrome for Testing: macOS, then Linux (CI)
+  for (const base of [join(process.env.HOME ?? "", "Library/Caches/ms-playwright"), process.env.PLAYWRIGHT_BROWSERS_PATH, join(process.env.HOME ?? "", ".cache/ms-playwright")]) {
+    if (!base || !existsSync(base)) continue;
+    const dirs = readdirSync(base).filter((d) => /^chromium-\d+$/.test(d)).sort().reverse();
+    for (const d of dirs) {
+      for (const p of [
+        join(base, d, "chrome-mac-arm64", "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
+        join(base, d, "chrome-mac", "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"),
+        join(base, d, "chrome-linux64", "chrome"),
+        join(base, d, "chrome-linux", "chrome"),
+      ]) if (existsSync(p)) return p;
     }
   }
   throw new Error("Chrome for Testing not found: run `npx playwright install chromium` or set CHROME");
@@ -99,5 +104,7 @@ export async function launch({ dist = resolve("dist"), port = 9333 } = {}) {
     const shot = await send("Page.captureScreenshot", { format: "png" }, es);
     (await import("node:fs")).writeFileSync(file, Buffer.from(shot.data, "base64"));
   };
-  return { send, extId, page, ext, msg, goto, tabId, click, screenshot, evalPage: (e) => evalIn(page.sid, e), close: () => proc.kill() };
+  /** open an extension page in the helper tab (ext() then runs there) */
+  const extGoto = async (extPage, waitMs = 1500) => { await send("Page.navigate", { url: `chrome-extension://${extId}/${extPage}` }, es); await sleep(waitMs); };
+  return { send, extId, page, ext, extGoto, msg, goto, tabId, click, screenshot, evalPage: (e) => evalIn(page.sid, e), close: () => proc.kill() };
 }

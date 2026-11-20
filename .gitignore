@@ -6,3 +6,4 @@ dist/
 .eval/
 eval.config.json
 .dev-stop
+release/

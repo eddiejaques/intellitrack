@@ -1,6 +1,9 @@
 import { liveChecklist } from "../planner/plan";
 import { loadConfig, validateConfig } from "../llm/config";
 import { guardWorker, pageUrl } from "./session";
+import { showVersion } from "./version";
+
+showVersion(document.getElementById("version"));
 import { saveVendors, vendorPicker } from "./vendorPicker";
 import { DEFAULT_VENDORS, selectedEventCount, sessionVendors } from "../shared/vendors";
 import type { PlanResult } from "../background/planner";
