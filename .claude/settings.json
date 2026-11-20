@@ -24,7 +24,15 @@
       "Bash(git commit:*)",
       "Bash(git push -u origin:*)",
       "Bash(git rev-parse:*)",
-      "Bash(git worktree list:*)"
+      "Bash(git worktree list:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(git merge origin/main:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",
