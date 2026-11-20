@@ -10,6 +10,8 @@ export interface RawPush {
   replayed?: boolean;
   /** the global the array lives on (dataLayer, or a renamed one from gtm.js?l=…) */
   layer?: string;
+  /** ms epoch when this page load started (performance.timeOrigin) */
+  origin?: number;
 }
 
 /**
@@ -72,7 +74,7 @@ export function installDataLayerObserver(extra: string[] = [], emit?: (p: RawPus
   const record = (item: unknown, layer: string, replayed: boolean) => {
     try {
       const kind = isArgs(item) ? "gtag" : item && typeof item === "object" && !Array.isArray(item) ? "object" : "other";
-      const p: RawPush = { at: Date.now(), kind, payload: clone(item, 0, []), layer };
+      const p: RawPush = { at: Date.now(), kind, payload: clone(item, 0, []), layer, origin: Math.round(performance.timeOrigin) };
       if (replayed) p.replayed = true;
       send(p);
     } catch { /* never break the page */ }

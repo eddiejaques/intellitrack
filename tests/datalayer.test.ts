@@ -142,6 +142,10 @@ describe("dataLayer records (background side)", () => {
     expect(isGa4EventPush({ kind: "object", command: "push", name: "gtm.dom" })).toBe(false);
     expect(isGa4EventPush({ kind: "gtag", command: "config", name: "G-TEST000001" })).toBe(false);
     expect(isGa4EventPush({ kind: "object", command: "push", name: "view_item_list" })).toBe(true);
+    // Google Ads-only conversions are not GA4 events; a mixed send_to still is
+    expect(isGa4EventPush({ kind: "gtag", command: "event", name: "conversion", payload: ["event", "conversion", { send_to: "AW-123456789/AbC" }] })).toBe(false);
+    expect(isGa4EventPush({ kind: "gtag", command: "event", name: "purchase", payload: ["event", "purchase", { send_to: ["AW-123456789/AbC", "G-TEST000001"] }] })).toBe(true);
+    expect(isGa4EventPush({ kind: "gtag", command: "event", name: "purchase", payload: ["event", "purchase", { value: 1 }] })).toBe(true);
   });
 
   it("matches pushed GA4 events to sent hits within the same page load", () => {
@@ -155,6 +159,7 @@ describe("dataLayer records (background side)", () => {
       row("c", "view_item", "DOC2"), // reload of the same page: the hit came from DOC1 only
       row("d", "gtm.load", "DOC1"),
       row("e", "page_view", "DOC3", "/cart"),
+      { ...row("f", "view_item_list", "DOC0"), replayed: true, before_recording: true },
     ];
     const events = [
       { vendor: "ga4", event: "view_item", documentId: "DOC1", page: { path: "/products/123" } },
@@ -201,6 +206,18 @@ describe("handleDataLayerPush", () => {
     expect(JSON.stringify(rows)).not.toContain("jane@example.com");
     await st.deleteSession(s.id);
     expect(await st.getPushes(s.id)).toHaveLength(0);
+  });
+
+  it("flags replayed pushes from a page loaded before Start, but not from pages loaded after", async () => {
+    const c = await import("../extension/src/background/capture");
+    const st = await import("../extension/src/background/store");
+    const s = await c.startSession(7);
+    const from = { tabId: 7, frameId: 0, documentId: "DOC1", url: "https://shop.example/" };
+    await c.handleDataLayerPush(from, { at: Date.now(), kind: "object", payload: { event: "view_item" }, replayed: true, origin: s.startedAt - 5000 });
+    await c.handleDataLayerPush({ ...from, documentId: "DOC2" }, { at: Date.now(), kind: "object", payload: { event: "view_item" }, replayed: true, origin: s.startedAt + 10 });
+    const rows = await st.getPushes(s.id);
+    expect(rows.map((r) => r.before_recording ?? false)).toEqual([true, false]);
+    expect(Object.fromEntries(sentStatus(rows, []))).toEqual({ [rows[1].key]: "not_sent" });
   });
 
   it("puts the page load id on captured GA4 events", async () => {

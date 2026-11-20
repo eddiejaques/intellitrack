@@ -92,11 +92,14 @@ function pushRow(p: DataLayerRow, verdict: "sent" | "not_sent" | undefined): HTM
   const row = h("tr", "",
     h("td", "mono muted nowrap", fmtT(p.t)),
     h("td", "", h("div", "row wrap", h("strong", "", pushLabel(p)), p.step ? chip(p.step) : h("span")),
-      h("div", "row wrap", chip(what, "mono"), p.replayed ? chip("already in dataLayer", "no_data") : h("span"), h("span", "muted mono path", p.path ?? ""))),
+      h("div", "row wrap", chip(what, "mono"), p.before_recording ? chip("before recording", "no_data") : p.replayed ? chip("already in dataLayer", "no_data") : h("span"), h("span", "muted mono path", p.path ?? ""))),
     h("td", "", verdict === "sent" ? chip("sent", "matched") : verdict === "not_sent" ? chip("not sent", "missing") : h("span", "muted", "–")));
   row.dataset.push = verdict ?? "";
   return expandable(row, () => h("div", "stack",
-    h("div", "muted", `${p.id} · ${verdict === "not_sent" ? "no GA4 hit with this event name came from this page load" : verdict === "sent" ? "a GA4 hit with this event name came from this page load" : "not a GA4 event, so it is not matched"}`),
+    h("div", "muted", `${p.id} · ${verdict === "not_sent" ? "no GA4 hit with this event name came from this page load"
+      : verdict === "sent" ? "a GA4 hit with this event name came from this page load"
+      : p.before_recording ? "pushed before recording started, so its GA4 hit (if any) was not captured: reload the page to check it"
+      : "not a GA4 event, so it is not matched"}`),
     h("pre", "json", JSON.stringify(p.payload, null, 2))));
 }
 

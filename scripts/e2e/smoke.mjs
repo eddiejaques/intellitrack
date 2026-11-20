@@ -63,11 +63,12 @@ try {
   const label = await b.ext(`[...document.querySelectorAll("tr")].find((r) => r.textContent.includes("never_sent_test"))?.lastElementChild.textContent ?? ""`);
   check(verdict === "not_sent" && label === "not sent", `session log shows never_sent_test as "not sent" (got ${verdict} / ${label})`);
   await b.extGoto("options.html");
-  await b.msg({ type: "stop" });
 
-  // 1c. tabs that are not recorded never get the observer
+  // 1c. a tab that is not recorded never gets the observer, even while a recording runs
   const other = await b.otherTab("http://localhost:8123/datalayer.html", 1500);
-  check(await other("window.__intellitrack_dl === undefined && !Object.getOwnPropertyDescriptor(window.dataLayer, 'push')"), "unrecorded tab: dataLayer.push is not hooked");
+  check(await other("window.__intellitrack_dl === undefined && !Object.getOwnPropertyDescriptor(window.dataLayer, 'push')"), "unrecorded tab during a recording: dataLayer.push is not hooked");
+  check(await b.evalPage("window.__intellitrack_dl !== undefined"), "recorded tab: dataLayer.push is hooked");
+  await b.msg({ type: "stop" });
   await b.goto("http://localhost:8123/datalayer.html", 1500);
   check(await b.evalPage("window.__intellitrack_dl === undefined"), "recorded tab after Stop: a new page load is not hooked");
 
@@ -79,6 +80,8 @@ try {
   await sleep(6000);
   events = await b.msg({ type: "getEvents", sessionId: s2.id });
   check(events.some((e) => e.event === "view_item"), "events from a followed new tab are captured", true);
+  pushes = await b.msg({ type: "getPushes", sessionId: s2.id });
+  check(pushes.some((p) => p.name === "view_item" && p.tabId !== tab), "dataLayer pushes from a followed new tab are recorded");
   await b.msg({ type: "stop" });
 
   // 3. sessions stay separate

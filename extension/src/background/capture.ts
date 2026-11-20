@@ -298,7 +298,7 @@ export function handleDataLayerPush(from: PushSender, raw: unknown): Promise<boo
     if ((s.push_count ?? 0) >= MAX_STORED_PUSHES) return false;
     const f = toPushFields(raw);
     if (!f) return false;
-    const { at, ...fields } = f;
+    const { at, origin, ...fields } = f;
     const n = s.nextPush ?? 1;
     const id = `dl_${String(n).padStart(4, "0")}`;
     s.nextPush = n + 1;
@@ -312,6 +312,7 @@ export function handleDataLayerPush(from: PushSender, raw: unknown): Promise<boo
       documentId: from.documentId,
       path: pagePath(from.url),
       step: s.markers.length ? s.markers[s.markers.length - 1].id : undefined,
+      before_recording: fields.replayed && origin !== undefined && origin < s.startedAt ? true : undefined,
     });
     return true;
   });

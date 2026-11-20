@@ -22,6 +22,8 @@ export interface DataLayerRow {
   kind: RawPush["kind"];
   payload: unknown;
   replayed?: boolean;
+  /** replayed from a page that loaded before recording started: its hits were not captured, so no verdict */
+  before_recording?: boolean;
   step?: string;
 }
 
@@ -59,7 +61,7 @@ export function describePush(kind: RawPush["kind"], payload: unknown): { command
  * Check and redact a push reported by a page. The page can post anything, so the shape is
  * validated and the payload is size-capped. Returns undefined for junk.
  */
-export function toPushFields(raw: unknown): (Pick<DataLayerRow, "layer" | "command" | "name" | "kind" | "payload" | "replayed"> & { at: number }) | undefined {
+export function toPushFields(raw: unknown): (Pick<DataLayerRow, "layer" | "command" | "name" | "kind" | "payload" | "replayed"> & { at: number; origin?: number }) | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Partial<RawPush>;
   if (typeof r.at !== "number" || !Number.isFinite(r.at)) return undefined;
@@ -76,6 +78,7 @@ export function toPushFields(raw: unknown): (Pick<DataLayerRow, "layer" | "comma
     kind: r.kind,
     payload,
     replayed: r.replayed === true ? true : undefined,
+    origin: typeof r.origin === "number" && Number.isFinite(r.origin) ? r.origin : undefined,
   };
 }
 
@@ -88,9 +91,16 @@ export const pagePath = (url?: string): string | undefined => {
  * Is this push a GA4 event that should have been sent? gtag('event', …) and dataLayer pushes with an
  * `event` key, except GTM's own lifecycle events (gtm.js, gtm.dom, gtm.load, gtm.click, …).
  */
-export function isGa4EventPush(p: Pick<DataLayerRow, "command" | "name" | "kind">): boolean {
+export function isGa4EventPush(p: Pick<DataLayerRow, "command" | "name" | "kind"> & { payload?: unknown }): boolean {
   if (!p.name) return false;
-  if (p.kind === "gtag") return p.command === "event";
+  if (p.kind === "gtag") {
+    if (p.command !== "event") return false;
+    // gtag('event', 'conversion', { send_to: 'AW-…/…' }) is for Google Ads only, not GA4
+    const params = Array.isArray(p.payload) ? p.payload[2] : undefined;
+    const to = params && typeof params === "object" ? (params as Record<string, unknown>).send_to : undefined;
+    const targets = (Array.isArray(to) ? to : [to]).filter((x): x is string => typeof x === "string");
+    return targets.length === 0 || targets.some((x) => !/^(AW|DC)-/i.test(x.trim()));
+  }
   return p.command === "push" && !p.name.startsWith("gtm.");
 }
 
@@ -127,7 +137,7 @@ export function sentStatus(pushes: DataLayerRow[], events: SentEvent[]): Map<str
   }
   const out = new Map<string, "sent" | "not_sent">();
   for (const p of pushes) {
-    if (!isGa4EventPush(p)) continue;
+    if (p.before_recording || !isGa4EventPush(p)) continue;
     const k = `${p.path ?? "/"}|${p.name}`;
     const sent = p.documentId ? byDoc.has(`${p.documentId}|${p.name}`) || byPathNoDoc.has(k) : byPath.has(k);
     out.set(p.key, sent ? "sent" : "not_sent");
