@@ -107,6 +107,7 @@ export interface SessionMeta {
 }
 
 export type Message =
+  | { type: "hello" }
   | { type: "start"; tabId: number }
   | { type: "stop" }
   | { type: "clear" }

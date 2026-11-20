@@ -28,3 +28,25 @@ export function fmtDuration(s: Pick<SessionMeta, "startedAt" | "endedAt" | "stat
   const sec = Math.max(0, Math.round(((s.endedAt ?? Date.now()) - s.startedAt) / 1000));
   return sec < 60 ? `${sec} s` : `${Math.floor(sec / 60)} min ${sec % 60} s`;
 }
+
+/** True when this page was built together with the running background worker. */
+export function isCurrentWorker(reply: unknown, build: string): boolean {
+  return !!reply && typeof reply === "object" && (reply as { build?: string }).build === build;
+}
+
+/**
+ * After a rebuild, pages load the new files at once but the background worker keeps running the
+ * old code until the extension is reloaded. Pages then get empty answers and look broken.
+ * Returns true (after explaining) when that is the case, so the caller can stop.
+ */
+export async function guardWorker(root: HTMLElement, mode: "replace" | "prepend" = "replace"): Promise<boolean> {
+  let ok = false;
+  try { ok = isCurrentWorker(await send({ type: "hello" }), __BUILD_ID__); } catch { ok = false; }
+  if (ok) return false;
+  const card = document.createElement("div");
+  card.className = "card stack";
+  card.innerHTML = '<h3>IntelliTrack was updated, but it is still running the old version</h3>' +
+    '<p class="muted">Open <code>chrome://extensions</code>, click the reload icon on IntelliTrack, then reopen this page. Your sessions are kept.</p>';
+  if (mode === "prepend") root.prepend(card); else root.replaceChildren(card);
+  return true;
+}

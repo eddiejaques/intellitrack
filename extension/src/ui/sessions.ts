@@ -1,5 +1,5 @@
 import type { SessionSummary } from "../shared/types";
-import { fmtDuration, fmtWhen, pageUrl, send, siteLabel } from "./session";
+import { fmtDuration, fmtWhen, guardWorker, pageUrl, send, siteLabel } from "./session";
 
 type K = string | HTMLElement;
 function h(tag: string, cls = "", ...kids: K[]): HTMLElement {
@@ -43,8 +43,8 @@ function sessionRow(x: SessionSummary): HTMLElement {
         s.site?.title ? h("span", "muted", s.site.title) : h("span"))),
     h("div", "side", scoreEl(x.report),
       link("Log", "viewer.html", s.id),
-      link(x.report ? "Report" : "Audit", x.report ? "report.html" : "preview.html", s.id, "btn secondary sm"),
-      x.report ? link("Re-audit", "preview.html", s.id) : h("span"),
+      x.report ? link("Report", "report.html", s.id, "btn secondary sm") : h("span"),
+      s.eventCount > 0 ? link(x.report ? "Re-audit with LLM" : "Run LLM audit", "preview.html", s.id, x.report ? "btn ghost sm" : "btn primary sm") : h("span"),
       del));
 }
 
@@ -69,4 +69,4 @@ async function load() {
 }
 
 document.getElementById("filter")!.addEventListener("input", (e) => { filter = (e.target as HTMLInputElement).value.toLowerCase(); paint(); });
-void load();
+void guardWorker(document.getElementById("list")!).then((stale) => { if (!stale) void load(); });

@@ -19,6 +19,8 @@ const opts = {
   },
   bundle: true,
   loader: { ".md": "text" },
+  // pages and the background worker are built together; a mismatch means the worker is stale
+  define: { __BUILD_ID__: JSON.stringify(Date.now().toString(36)) },
   format: "iife",
   target: "chrome120",
   outdir: "dist",

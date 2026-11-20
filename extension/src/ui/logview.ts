@@ -1,6 +1,6 @@
 import type { StoredEvent } from "../background/store";
 import type { Message, RequestRow, SessionMeta } from "../shared/types";
-import { fmtDuration, fmtWhen, resolveSession, siteLabel } from "./session";
+import { fmtDuration, fmtWhen, guardWorker, pageUrl, resolveSession, siteLabel } from "./session";
 
 const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
 
@@ -82,6 +82,8 @@ function eventRow(e: StoredEvent): HTMLElement[] {
 export interface LogViewOptions {
   /** full-page viewer shows an export button */
   exportable?: boolean;
+  /** called whenever the shown session changes (the panel header follows it) */
+  onSession?: (s: SessionMeta | undefined) => void;
 }
 
 export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
@@ -122,6 +124,7 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
   }
 
   function paint() {
+    opts.onSession?.(session);
     const rec = session?.status === "recording";
     const unparsed = requests.filter((r) => r.vendor === "unrecognized").length;
     summary.replaceChildren(
@@ -173,5 +176,5 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
 
   // follow live updates only when showing the session that is being recorded
   chrome.storage.session.onChanged.addListener((c) => { if (c.session && (!session || session.status === "recording" || (c.session.newValue as SessionMeta | undefined)?.id === session.id)) void load(); });
-  void load();
+  void guardWorker(root).then((stale) => { if (!stale) void load(); });
 }

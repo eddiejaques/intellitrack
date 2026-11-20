@@ -1,6 +1,6 @@
 import { reportToMarkdown } from "../background/markdown";
 import type { AuditReport, Finding, Message } from "../shared/types";
-import { fmtDuration, fmtWhen, pageUrl, resolveSession, siteLabel } from "./session";
+import { fmtDuration, fmtWhen, guardWorker, pageUrl, resolveSession, siteLabel } from "./session";
 
 const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
 
@@ -115,6 +115,7 @@ function render(r: AuditReport) {
 }
 
 async function main() {
+  if (await guardWorker(document.getElementById("root")!)) return;
   const s = await resolveSession();
   if (s) document.getElementById("who")!.replaceChildren(`${siteLabel(s)} · ${fmtWhen(s.startedAt)} · ${fmtDuration(s)}`);
   const r = s ? await send<AuditReport | undefined>({ type: "getReport", sessionId: s.id }) : undefined;

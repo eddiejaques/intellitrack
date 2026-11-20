@@ -1,7 +1,7 @@
 import { buildPayload, findRawPii } from "../minimize";
 import { loadConfig, validateConfig } from "../llm/config";
 import { sessionPlan } from "../planner/plan";
-import { fmtDuration, fmtWhen, pageUrl, resolveSession, siteLabel } from "./session";
+import { fmtDuration, fmtWhen, guardWorker, pageUrl, resolveSession, siteLabel } from "./session";
 import type { StoredEvent } from "../background/store";
 import type { AuditReport, JourneyPlan, Message, Payload, RequestRow, SessionMeta } from "../shared/types";
 
@@ -100,6 +100,7 @@ $("send").addEventListener("click", () => void run(true));
 $("rules-only").addEventListener("click", () => void run(false));
 
 async function main() {
+  if (await guardWorker(document.querySelector("main")!, "prepend")) return;
   session = await resolveSession();
   if (!session) {
     $("payload").textContent = "No session recorded yet.";

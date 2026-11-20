@@ -1,12 +1,14 @@
 import { mountLogView } from "./logview";
-import type { Message, SessionMeta } from "../shared/types";
+import { pageUrl, send } from "./session";
+import type { SessionMeta } from "../shared/types";
 
-const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
 const count = document.getElementById("count")!;
 const label = document.getElementById("label")!;
 const dot = document.getElementById("dot")!;
 const toggle = document.getElementById("toggle") as HTMLButtonElement;
+const audit = document.getElementById("audit") as HTMLAnchorElement;
 
+/** The header always describes the session the table below is showing. */
 function paint(s?: SessionMeta) {
   const rec = s?.status === "recording";
   count.textContent = String(s?.eventCount ?? 0);
@@ -14,6 +16,9 @@ function paint(s?: SessionMeta) {
   dot.className = `dot ${rec ? "rec" : s ? "done" : ""}`;
   toggle.textContent = rec ? "Stop recording" : "Start on current tab";
   toggle.className = `btn sm ${rec ? "secondary" : "primary"}`;
+  const canAudit = !!s && !rec && s.eventCount > 0;
+  audit.classList.toggle("hide", !canAudit);
+  if (canAudit) audit.href = pageUrl("preview.html", s!.id);
 }
 
 toggle.addEventListener("click", async () => {
@@ -23,8 +28,5 @@ toggle.addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     if (tab?.id !== undefined) await send({ type: "start", tabId: tab.id });
   }
-  paint(await send<SessionMeta | undefined>({ type: "getState" }));
 });
-chrome.storage.session.onChanged.addListener((c) => { if (c.session) paint(c.session.newValue as SessionMeta | undefined); });
-void send<SessionMeta | undefined>({ type: "getState" }).then(paint);
-mountLogView(document.getElementById("log")!);
+mountLogView(document.getElementById("log")!, { onSession: paint });
