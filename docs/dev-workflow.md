@@ -82,6 +82,7 @@ npm run kanban -- set X6 ready [--prio -1]       # needs acceptance criteria
 npm run kanban -- comment X6 --kind answer "Use the GA4 key from the test account"
 npm run kanban -- check X6 [n]                   # list the criteria / tick criterion n
 npm run kanban -- wait --timeout 1800            # used by the agent: blocks until there's work
+npm run kanban -- sync X6                        # used by the agent: merge GitHub's and main's new commits into the card's branch
 npm run kanban -- stop | go                      # ask the agent to stop after its card / clear it
 ```
 
@@ -95,6 +96,18 @@ claude            # then type /development-start
 ```
 
 It takes cards one at a time. When there's nothing to do, it **waits**: it checks the board every minute in the background, and picks up a card as soon as you move one to Ready or comment on a Blocked or Review card. To stop it, type `/development-stop` in either window. The agent finishes the card it's on (to Review or Blocked, tested and pushed), doesn't take another, and stops.
+
+### Your changes on GitHub are kept
+
+You can change a card's branch on GitHub at any time: click **Update branch** on the PR, edit a file in the browser, or push a fix. The agent never works on, pushes or deploys a stale copy. Before it resumes a card, before every push and at the start of a deploy, it runs `npm run kanban -- sync <ID>`:
+
+1. `git fetch origin`;
+2. if the branch is on GitHub: fast-forward to it, or merge it when both sides have new commits;
+3. merge `origin/main`.
+
+Only merges that add commits are used. Nothing is rebased, reset or force-pushed, so your commits stay in the branch history exactly as you made them. When something came in, the agent re-runs the checks and says on the card what it merged.
+
+Exit codes: **0** synced or already up to date; **5** conflict (the merge is aborted, the folder is left clean, and the conflicting files are listed); **6** uncommitted changes (it refuses to start; after a crash the agent commits them as `WIP: <ID> recovered` first); **1** any other error. On a conflict the agent resolves it itself only when it's mechanical. If resolving it means choosing between your change and its own, it blocks the card and asks. It never deploys with a conflict. If a push is rejected because someone pushed in between, it syncs and pushes again, at most twice, then blocks the card. It never retries with `--force`.
 
 `.claude/settings.json` pre-approves the build, test, git, board and read-only `gh` commands. Force-push and `reset --hard` are denied everywhere. In the dev folder, pushing to `main` directly and closing or deleting issues are also denied (`.claude/settings.local.json`, written by the setup script). Merging a PR is allowed there, because the agent deploys when you approve.
 

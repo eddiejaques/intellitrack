@@ -12,6 +12,8 @@
 //   npm run kanban -- check B2 [n] [--undo]  list the acceptance criteria, or tick criterion n in the issue body
 //   npm run kanban -- wait [--timeout 1800] [--every 60]   block until there's a card to work on
 //                                           (exit 0 and print it, 3 on timeout, 4 on a stop request)
+//   npm run kanban -- sync B2 [--branch b]  bring the card's branch up to date: fetch, merge origin/<branch>, merge origin/main
+//                                           (merges only; exit 0 synced, 5 conflict (aborted), 6 uncommitted changes, 1 error)
 //   npm run kanban -- stop | go             ask the dev agent to stop after its card / clear that request
 //   npm run kanban -- dir                   the main checkout (where the stop request file lives)
 //
@@ -26,6 +28,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG, comment, createCardIssue, editBody, findCard, issueComments, listCards, project, reopenIssue, setField } from "./gh-board.mjs";
+import { syncBranch } from "./git-sync.mjs";
 import { STATUSES, STATUS_NAMES, checkMove, criteria, formatComment, hasCriteria, newCardBody, nextCard, parseComment, sortCards, tickCriterion } from "./kanban-lib.mjs";
 
 function mainCheckout() {
@@ -163,6 +166,15 @@ try {
       editBody(c.number, tickCriterion(c.body, Number(n), !args.includes("--undo")));
       console.log(`${c.id}: criterion ${n} ${args.includes("--undo") ? "unticked" : "ticked"}`);
     }
+  } else if (cmd === "sync") {
+    const [id] = positional();
+    if (!id) die("usage: sync <ID> [--branch name]");
+    const branch = flag("branch") ?? findCard(id).branch;
+    if (!branch) die(`${id} has no branch on the board (set one with: set ${id} in_progress --branch <name>)`, 1);
+    const top = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+    const r = syncBranch({ dir: top, branch });
+    for (const l of r.lines) (r.code ? console.error : console.log)(l);
+    process.exit(r.code);
   } else if (cmd === "comment") {
     const [id, text] = positional();
     const body = flag("body-file") ? readFileSync(flag("body-file"), "utf8") : text;
