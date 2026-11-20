@@ -14,7 +14,10 @@ cat > .claude/settings.local.json <<'JSON'
     "deny": [
       "Bash(git push origin main:*)",
       "Bash(git push origin HEAD:main:*)",
-      "Bash(git checkout main)"
+      "Bash(git checkout main)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh issue close:*)",
+      "Bash(gh issue delete:*)"
     ]
   }
 }

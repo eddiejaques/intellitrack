@@ -293,7 +293,7 @@ These rules run locally with no LLM.
 | **Review / Eval** | Parser tests pass, and the eval script (T5) shows no regression on the existing fixtures. |
 | **Done** | Merged and released to pilot users. |
 
-The MVP task statuses are tracked in §1. Create `kanban.md` when work resumes to track the MVP and backlog together.
+The live board is the GitHub Project https://github.com/users/eddiejaques/projects/1: one issue per card (T0–T6, B-items, ad-hoc X-cards). Its Status and Prio fields are the source of truth for column and order; the table below is the original ranking and the place for longer-term reordering. A card is Done only when its PR is merged into `main`.
 
 Always pull from the top of Ready. **Triggered** items skip the queue only when their trigger fires.
 
