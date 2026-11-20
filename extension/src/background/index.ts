@@ -88,6 +88,8 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
 chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
   (async () => {
     switch (msg.type) {
+      case "hello":
+        return { build: __BUILD_ID__ };
       case "start":
         return startSession(msg.tabId);
       case "stop":

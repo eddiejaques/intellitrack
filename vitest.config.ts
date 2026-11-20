@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 // Mirror esbuild's `.md` -> text loader so prompts can live as markdown files.
 export default defineConfig({
+  define: { __BUILD_ID__: JSON.stringify("test-build") },
   plugins: [{
     name: "md-text",
     transform(_code, id) {

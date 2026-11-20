@@ -119,3 +119,14 @@ describe("an empty session is inconclusive, not 19 failures", () => {
     expect(buildReport("s", p, { skipped: true }).inconclusive).toBeUndefined();
   });
 });
+
+describe("stale background worker", () => {
+  it("is detected: an old worker answers the handshake with nothing", async () => {
+    const { isCurrentWorker } = await import("../extension/src/ui/session");
+    expect(isCurrentWorker({ build: "b1" }, "b1")).toBe(true);
+    expect(isCurrentWorker({ build: "old" }, "b1")).toBe(false);
+    expect(isCurrentWorker(null, "b1")).toBe(false); // worker predating the handshake: unknown message -> no reply
+    expect(isCurrentWorker(undefined, "b1")).toBe(false);
+    expect(isCurrentWorker("x", "b1")).toBe(false);
+  });
+});

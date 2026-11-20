@@ -1,6 +1,6 @@
 import { liveChecklist } from "../planner/plan";
 import { loadConfig, validateConfig } from "../llm/config";
-import { pageUrl } from "./session";
+import { guardWorker, pageUrl } from "./session";
 import type { PlanResult } from "../background/planner";
 import type { StoredEvent } from "../background/store";
 import type { CoverageEntry, Message, SessionMeta } from "../shared/types";
@@ -228,4 +228,4 @@ $("preview").addEventListener("click", () => void chrome.tabs.create({ url: page
 chrome.storage.session.onChanged.addListener((c) => { if (c.session) void refresh(); });
 
 void showLlmStatus();
-void refresh();
+void guardWorker(document.querySelector(".wrap")!, "prepend").then((stale) => { if (!stale) void refresh(); });
