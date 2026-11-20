@@ -1,1 +1,21 @@
-{ "B28": "review", "B27": "review", "B1": "review", "B26": "review" }
+{
+  "B28": {
+    "status": "done",
+    "note": "merged to main"
+  },
+  "B27": {
+    "status": "done",
+    "note": "merged to main"
+  },
+  "B1": {
+    "status": "review",
+    "note": "Code merged; parameter names still need confirming against real captured Ads pings"
+  },
+  "B26": {
+    "status": "done",
+    "note": "merged to main"
+  },
+  "B2": {
+    "status": "ready"
+  }
+}

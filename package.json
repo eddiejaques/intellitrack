@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "eval": "node scripts/run-eval.mjs",
-    "kanban": "node scripts/kanban.mjs"
+    "kanban": "node scripts/kanban.mjs",
+    "e2e": "node scripts/e2e/smoke.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.7",

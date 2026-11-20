@@ -5,3 +5,4 @@ dist/
 .env
 .eval/
 eval.config.json
+.dev-stop

@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><title>SPA shop</title></head><body><h1>SPA shop</h1>
+<script>
+navigator.serviceWorker.register("/sw.js").then(async () => {
+  await navigator.serviceWorker.ready;
+  const send = (en) => navigator.serviceWorker.controller?.postMessage({ en, dl: location.href });
+  setTimeout(() => send("page_view"), 1500); setTimeout(() => send("view_item"), 3000); setTimeout(() => send("add_to_cart"), 4500);
+  // controller may be null on the very first load: use the registration's active worker
+  setTimeout(async () => { const r = await navigator.serviceWorker.ready; for (const en of ["worker_a","worker_b"]) r.active.postMessage({ en, dl: location.href }); }, 5500);
+});
+</script></body></html>
