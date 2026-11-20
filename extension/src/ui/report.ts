@@ -45,6 +45,7 @@ function inconclusiveView(r: AuditReport, sid: string): HTMLElement[] {
   const d = r.diagnostics;
   const steps: string[] = [];
   if (d && d.tag_requests === 0) steps.push("No tag requests were seen at all. Make sure you pressed Start before loading or interacting with the page, and that an ad blocker is not stopping analytics.");
+  if (d?.silent_ga4?.length) steps.unshift(`GA4 ${d.silent_ga4.join(", ")} was loaded on the page but sent no GA4 hits. This points at the site, not at IntelliTrack: check in GTM whether the GA4 tag waits for consent or its trigger never fires.`);
   if (d?.unattributed) steps.push(`${d.unattributed} GA4/Ads hit(s) came from a service worker or another browsing context and could not be tied to this tab. Open the session log to see which contexts sent them.`);
   if (d && d.not_parsed > 0) steps.push(`${d.not_parsed} tag request(s) were logged but IntelliTrack can't parse them yet. Open the session log and expand them: they may be a vendor that isn't supported, or GA4 sent in an unusual way.`);
   steps.push("Many European sites fire analytics only after cookie consent. Accept the banner, then keep browsing.");

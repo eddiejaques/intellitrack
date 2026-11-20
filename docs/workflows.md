@@ -69,6 +69,7 @@ The **Tags** tab of the live panel / session log lists *every* tag-like request,
    - **Nothing at all:** many European sites fire analytics only after you accept cookies. Accept the banner and click around. Also check that an ad blocker or privacy extension is not blocking requests.
    - **Rows labelled `not parsed · <vendor>`:** the site uses a vendor IntelliTrack does not audit yet (Meta, TikTok, Criteo, Bing, ...). They are shown raw so you can still inspect them. Click a row for the full URL, decoded query parameters and body.
    - **`not parsed · Universal Analytics (legacy)`:** the site still sends old UA hits instead of GA4.
+   - **A warning that GA4 loaded but sent no hits:** the site's GA4 tag is silent (see Troubleshooting). IntelliTrack lists every Google tag it saw load (`G-…`, `GTM-…`, `AW-…`) at the top of the log.
    - **GA4 requests that are not recognised:** use **Export JSON** in the session log and open an issue with the file. Server-side setups that rename or obfuscate the path can look different.
 4. If a session captured nothing, its report is *inconclusive*: no score, no LLM call, and a short checklist instead of a wall of "missing" findings.
 
@@ -94,6 +95,7 @@ Every vendor is always **captured**. The vendor pills decide what is **counted, 
 |---|---|
 | A page says **"IntelliTrack was updated, but it is still running the old version"** | You rebuilt the extension. Open `chrome://extensions`, click reload on IntelliTrack, reopen the page. Sessions are kept. |
 | The count stops growing after you click a product | The site opened it in a **new tab**. IntelliTrack follows tabs opened from the recorded tab (the session log shows *N tabs*), so reload the extension if this build is new. Tabs you open yourself are not followed: click the link on the recorded page instead. |
+| **"GA4 G-… loaded on this page but sent no GA4 hits"** | The site's GA4 tag is present but silent: IntelliTrack saw the tag load and no `/g/collect` hit follow. Usually the GA4 tag waits for cookie consent, its GTM trigger never fires, or it is misconfigured. Requests to `google.com/ccm/collect` are Google tag pings, not GA4 hits. This is a finding about the site. |
 | Count stays at 0 | No tags yet, or the site waits for cookie consent. See [workflow 4](#4-debug-a-site-that-shows-no-events). Check the vendor pills: a vendor that is left out is not counted. |
 | Count is lower than the number of tag requests | Requests IntelliTrack cannot parse count as *tag requests*, not *events*. Look for the *not parsed* chip. |
 | **Confirm & send to my LLM** is greyed out | No LLM configured, the session has no events for the chosen vendors, or the privacy check found raw personal data. The page says which. |

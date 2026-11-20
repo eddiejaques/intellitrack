@@ -99,6 +99,8 @@ export interface SessionMeta {
   selection?: { journeys: string[]; excluded_steps: string[] };
   plan_calls?: number;
   last_plan_at?: number;
+  /** Google tag libraries loaded in the recorded tabs, by ID (G-..., GTM-..., AW-...) -> load count */
+  tag_loads?: Record<string, number>;
   /** tabs being recorded: the one you started on plus tabs it opened (links with target=_blank, window.open) */
   tabIds?: number[];
   /** tag hits that arrived from a worker/other context and could not be tied to this tab */
@@ -248,6 +250,8 @@ export interface Payload {
 
 /** Capture-side facts that explain an empty or odd session. Not part of the LLM payload. */
 export interface AuditDiagnostics {
+  /** GA4 measurement IDs whose tag loaded but which sent no hits */
+  silent_ga4?: string[];
   /** recognised hits from workers/other contexts that were not counted for this tab */
   unattributed?: number;
   tag_requests: number;

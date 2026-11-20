@@ -3,6 +3,8 @@ import {
   addMarker,
   clearSession,
   followTab,
+  noteTagLoad,
+  tagLibraryId,
   restoreBadge,
   handleCompleted,
   handleError,
@@ -50,6 +52,10 @@ chrome.runtime.onStartup.addListener(() => void restoreBadge());
 // Listeners must be registered at the top level so events wake the service worker.
 chrome.webRequest.onBeforeRequest.addListener(
   (d) => {
+    if (d.type === "script" && tagLibraryId(d.url)) {
+      void noteTagLoad({ url: d.url, tabId: d.tabId, initiator: d.initiator });
+      return;
+    }
     if (!mightBeTracking(d.url, d.type)) return;
     const req: RawRequest = {
       requestId: d.requestId,

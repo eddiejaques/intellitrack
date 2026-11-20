@@ -53,6 +53,11 @@ const GUESSES: [RegExp, string][] = [
 export function guessVendor(url: string): string | undefined {
   try {
     const u = new URL(url);
+    if (/(^|\.)google\.[a-z.]+$/i.test(u.hostname) && u.pathname.startsWith("/ccm/")) {
+      const tid = u.searchParams.get("tid");
+      return tid ? `Google tag ccm · ${tid}` : "Google tag ccm (no ID)";
+    }
+    if (/(^|\.)googletagmanager\.com$/i.test(u.hostname) && u.pathname === "/a") return "Google tag diagnostics";
     for (const [re, name] of GUESSES) if (re.test(u.hostname)) return name === "Google Analytics" && !/\/g\/collect/.test(u.pathname) && /\/collect/.test(u.pathname) ? "Universal Analytics (legacy)" : name;
   } catch { /* ignore */ }
   return undefined;
