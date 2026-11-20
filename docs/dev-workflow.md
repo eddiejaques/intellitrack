@@ -8,12 +8,12 @@ Two Claude Code sessions, one board. The board is the GitHub Project **[IntelliT
 | **Dev agent** | `~/Documents/Intellitrack-dev` | `/development-start` | `/development-stop` (finishes the card in progress first) |
 
 ```
- you / review session                                   dev agent (../Intellitrack-dev worktree)
- ────────────────────                                   ────────────────────────────────────────
- create an issue, write criteria, drag to Ready ──▶     waits for Ready → branch → build → test
- answer a Blocked question in a comment, → Ready ◀──▶   blocked: WIP pushed + [agent · blocked] comment
- review the PR, merge it when you say so          ◀──   review: PR "Closes #n" + summary comment
- merge → issue closes → card Done
+ you, in the browser (or the review session)           dev agent (../Intellitrack-dev worktree)
+ ───────────────────────────────────────────           ────────────────────────────────────────
+ create an issue, write criteria, drag to Ready ──▶     start: branch → build → test, [agent · progress] comments
+ comment on a Blocked card (the answer)         ◀──▶    blocked: WIP pushed + [agent · blocked] question
+ comment on a Review card (feedback)            ◀──▶    review: PR "Closes #n" + [agent · review] summary
+ comment "I have reviewed, let's deploy"         ──▶    deploy: re-run checks, merge the PR → issue closes → Done
 ```
 
 ## One-time setup
@@ -60,15 +60,27 @@ Depends on: B2            (optional)
 
 The agent takes the card in progress first (resume), then the Ready card with the lowest Prio.
 
-Comments are the conversation. You and the agent post as the same GitHub account, so the agent starts its comments with `**[agent · <kind>]**`. Your plain comments are notes. To make an answer or a change request explicit, comment through the CLI (`--kind answer` / `--kind feedback`), or just comment and move the card to Ready: the agent reads every comment, and the newest one of yours wins over the body.
+Comments are the conversation. You and the agent post as the same GitHub account, so the agent starts its comments with `**[agent · <kind>]**`. It keeps each issue up to date: a `progress` comment when it starts and at each meaningful step, ticked criteria in the body as they're met, a `review` summary with the PR link, and a note when it deploys.
+
+**Your comments are signals.** Whatever you write after the agent's latest comment, on the issue or on its PR:
+
+| Card is in | You comment | The agent |
+|---|---|---|
+| Review | an approval: "I have reviewed, let's deploy", "ship it", "LGTM", "approved" | re-runs the checks, merges the PR into `main` (the issue closes, the card goes Done) |
+| Review | anything else | treats it as review feedback and reworks the card on the same branch and PR |
+| Blocked | anything | treats it as the answer and resumes on the branch |
+| Ready / Backlog | anything | reads it as a note when it works on the card |
+
+A negation ("don't deploy yet", "not ready to merge") is never an approval, and if the agent isn't sure, it asks instead of merging. Only comments from your account (`eddiejaques`) count: the repo is public, and anyone else's "let's deploy" is ignored.
 
 ```bash
 npm run kanban                                   # summary + board URL
-npm run kanban -- next                           # what the agent picks next
+npm run kanban -- next                           # what the agent does next: ID, title, #issue, action
 npm run kanban -- show B2                        # body, fields, PRs and every comment
 npm run kanban -- new "Badge turns red" --type ui --size S --body-file card.md [--ready]
 npm run kanban -- set X6 ready [--prio -1]       # needs acceptance criteria
 npm run kanban -- comment X6 --kind answer "Use the GA4 key from the test account"
+npm run kanban -- check X6 [n]                   # list the criteria / tick criterion n
 npm run kanban -- wait --timeout 1800            # used by the agent: blocks until there's work
 npm run kanban -- stop | go                      # ask the agent to stop after its card / clear it
 ```
@@ -82,9 +94,9 @@ cd ~/Documents/Intellitrack-dev
 claude            # then type /development-start
 ```
 
-It takes Ready cards one at a time. When none are left, it **waits**: it checks the board every minute in the background and starts the next card as soon as you move one to Ready (or answer a blocker and move it back). To stop it, type `/development-stop` in either window. The agent finishes the card it's on (to Review or Blocked, tested and pushed), doesn't take another, and stops.
+It takes cards one at a time. When there's nothing to do, it **waits**: it checks the board every minute in the background, and picks up a card as soon as you move one to Ready or comment on a Blocked or Review card. To stop it, type `/development-stop` in either window. The agent finishes the card it's on (to Review or Blocked, tested and pushed), doesn't take another, and stops.
 
-`.claude/settings.json` pre-approves the build, test, git, board and read-only `gh` commands. Force-push and `reset --hard` are denied everywhere. In the dev folder, pushing to `main`, merging PRs and closing issues are also denied (`.claude/settings.local.json`, written by the setup script).
+`.claude/settings.json` pre-approves the build, test, git, board and read-only `gh` commands. Force-push and `reset --hard` are denied everywhere. In the dev folder, pushing to `main` directly and closing or deleting issues are also denied (`.claude/settings.local.json`, written by the setup script). Merging a PR is allowed there, because the agent deploys when you approve.
 
 ## Review mode (product manager)
 

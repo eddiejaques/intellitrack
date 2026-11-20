@@ -4,7 +4,7 @@ IntelliTrack is a Chrome MV3 extension that captures marketing tags (GA4 first) 
 
 ## Two sessions, two roles
 - **Review mode** (`/review-start` … `/review-stop`): the user as product manager, in the main checkout (`/Users/gauravkumardani/Documents/Intellitrack`), always on `main`. No product code is edited there. It writes cards (GitHub issues), answers blockers, reviews PRs, and merges them to `main` only when the user asks.
-- **Dev agent** (`/development-start`, graceful stop with `/development-stop`) runs in the worktree `../Intellitrack-dev`, set up with `sh scripts/setup-dev-worktree.sh`. It sits detached at `main`, because `main` is checked out in the main checkout. It takes cards one at a time, works on a branch per card, pushes the branch and opens a PR (`Closes #<issue>`). It **never merges to `main`**, merges a PR or closes an issue.
+- **Dev agent** (`/development-start`, graceful stop with `/development-stop`) runs in the worktree `../Intellitrack-dev`, set up with `sh scripts/setup-dev-worktree.sh`. It sits detached at `main`, because `main` is checked out in the main checkout. It takes cards one at a time, works on a branch per card, pushes the branch and opens a PR (`Closes #<issue>`). It keeps the card's issue up to date with `[agent · …]` comments and ticked criteria. It merges a card's PR **only** when the PM has approved it in a comment on that card (e.g. "I have reviewed, let's deploy"); it never pushes to `main` directly or closes an issue by hand.
 
 ## Board
 - The board is a GitHub Project on `eddiejaques/intellitrack`. A card is an issue titled `<ID>: <title>` (plan B-ids, MVP T-ids, ad-hoc `X<n>`). Its column is the **Status** field (Backlog, Ready, In progress, Blocked, Review, Done); **Prio** (lower goes first), **Size** and **Branch** are fields; the type is a `type:<name>` label. Needs `gh` with the `project` scope.
@@ -12,6 +12,7 @@ IntelliTrack is a Chrome MV3 extension that captures marketing tags (GA4 first) 
 - Ready needs at least one real `- [ ]` acceptance criterion in the issue body. WIP limit 1.
 - **Done only happens when the card's PR is merged into `main`.** `kanban -- set <ID> done` refuses otherwise. Nobody closes a card's issue by hand.
 - The PM and the agent share one GitHub account, so the agent's comments start with `**[agent · <kind>]**`. The newest PM answer, feedback or change comment wins over the issue body.
+- The PM's comments in the browser are signals (only comments from the owner's account count; the repo is public). On a Review card, an approval ("I have reviewed, let's deploy", "ship it", "LGTM", "approved") means deploy: merge the PR. Any other comment on a Review card is feedback. Any comment on a Blocked card is the answer. `npm run kanban -- next` turns these into the actions `deploy`, `feedback` and `answer`.
 
 ## Code rules
 - One branch per card, named `<id>-<slug>` in lower case (`b2-datalayer`), cut from an up-to-date `main`.

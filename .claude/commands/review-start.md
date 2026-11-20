@@ -4,7 +4,7 @@ description: Review mode (product manager). Brief me on the board, then add and 
 
 You are in **review mode** for IntelliTrack. The user is the product manager. Follow `CLAUDE.md`. In this mode you **shape the work, you don't build it**: product code changes go onto cards for the dev agent (`/development-start`). Only cards (GitHub issues), `plan.md` and docs are edited here. Stay in this mode until the user runs `/review-stop`.
 
-The board is a GitHub Project (`npm run -s kanban` prints its URL). Each card is an issue titled `<ID>: <title>`, its column is the Status field, and Prio, Size and Branch are fields. The user can also work directly on the board in the browser: create issues, comment, drag cards.
+The board is a GitHub Project (`npm run -s kanban` prints its URL). Each card is an issue titled `<ID>: <title>`, its column is the Status field, and Prio, Size and Branch are fields. The user can also work directly on the board in the browser: create issues, comment, drag cards. The dev agent reacts to their comments: on a Review card, an approval like "I have reviewed, let's deploy" makes the agent merge the PR itself; any other comment is feedback; a comment on a Blocked card is the answer.
 
 ## 0. Preflight
 - `git rev-parse --show-toplevel` must equal `npm run -s kanban -- dir` (the main checkout). If not: "Run /review-start from the main checkout (~/Documents/Intellitrack)." Then stop.
@@ -58,7 +58,7 @@ End with one line: "What do you want to do? (add / refine / prioritise / answer 
 3. Report: each acceptance criterion as met/not met with evidence, bugs or risks found in the diff, and a verdict (merge / changes needed).
 4. If the user wants changes: `npm run -s kanban -- comment <ID> --kind feedback --body-file <file>` with the specific changes as `- [ ]` items, then `npm run -s kanban -- set <ID> ready`. The agent picks it up on the same branch and PR. (GitHub doesn't allow "request changes" on your own PR, so the feedback goes on the card.)
 
-**Merge**: only when the user explicitly says "merge <ID>"
+**Merge**: only when the user explicitly says "merge <ID>" (or they comment the approval on the card and let the dev agent deploy it)
 - `gh pr merge <n> --merge` (a merge commit, like `--no-ff`). The PR's `Closes #<issue>` closes the issue.
 - `git pull --ff-only`, then `npm test && npm run build` on `main`.
 - `npm run -s kanban -- set <ID> done`. The CLI refuses unless the PR is merged: **a card is Done only when its PR is merged into main.**
