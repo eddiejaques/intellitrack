@@ -104,6 +104,7 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
 
   const summary = h("div", "row wrap");
   const pickers = h("div", "");
+  const note = h("div", "");
   const tabs = h("div", "seg");
   const search = h("input") as HTMLInputElement;
   search.type = "text";
@@ -115,7 +116,7 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
   unparsedBox.addEventListener("change", () => { onlyUnparsed = unparsedBox.checked; paint(); });
   const toolbar = h("div", "row", search, h("label", "row muted nowrap", unparsedBox, "Not parsed only"));
   const body = h("div", "card table-card scroll");
-  root.replaceChildren(h("div", "stack", summary, pickers, tabs, toolbar, body));
+  root.replaceChildren(h("div", "stack", summary, note, pickers, tabs, toolbar, body));
 
   async function load() {
     session = await resolveSession();
@@ -135,10 +136,13 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
     opts.onSession?.(session);
     const rec = session?.status === "recording";
     const unparsed = requests.filter((r) => r.vendor === "unrecognized").length;
+    const un = session?.unattributed;
+    note.replaceChildren(...(un?.count ? [h("div", "note warn", `${un.count} GA4/Ads hit(s) came from a service worker or another browsing context and could not be tied to this tab, so they are not counted. Initiator(s): ${un.initiators.join(", ")}.`)] : []));
     summary.replaceChildren(
       session ? h("strong", "", siteLabel(session)) : h("span"),
       session ? h("span", "muted", `${fmtWhen(session.startedAt)} · ${fmtDuration(session)}`) : h("span"),
       h("span", `chip ${rec ? "missing" : ""}`.trim(), rec ? "● recording" : session ? "stopped" : "no session"),
+      (session?.tabIds?.length ?? 0) > 1 ? chip(`${session!.tabIds!.length} tabs`, "accent") : h("span"),
       chip(`${selectedEventCount(session ?? { eventCount: 0 })} events`, "accent"), chip(`${requests.length} tag requests`), unparsed ? chip(`${unparsed} not parsed`, "partial") : h("span"));
     if (session) {
       const sel = sessionVendors(session);

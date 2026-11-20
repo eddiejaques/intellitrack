@@ -2,6 +2,7 @@ import { decodeRawBody } from "./body";
 import {
   addMarker,
   clearSession,
+  followTab,
   restoreBadge,
   handleCompleted,
   handleError,
@@ -79,6 +80,14 @@ chrome.webRequest.onErrorOccurred.addListener(
   },
   { urls: ["<all_urls>"] },
 );
+
+chrome.tabs.onCreated.addListener((tab) => {
+  if (tab.id !== undefined && tab.openerTabId !== undefined) void followTab(tab.openerTabId, tab.id);
+});
+
+// A new tab created to host a navigation (target=_blank links, window.open): the source tab is exact,
+// unlike tab.openerTabId, which Chrome omits for implicitly "noopener" links.
+chrome.webNavigation.onCreatedNavigationTarget.addListener((d) => void followTab(d.sourceTabId, d.tabId));
 
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (info.url) void noteTabUrl(tabId, info.url);

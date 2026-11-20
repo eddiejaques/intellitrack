@@ -56,12 +56,12 @@ More detail for each of these is in **[docs/workflows.md](docs/workflows.md)**:
 
 ## Privacy
 
-- Recording covers **only the tab where you pressed Start**. It is never always-on.
+- Recording covers **the tab where you pressed Start and tabs it opens** (a product opened in a new tab, a checkout pop-up). Unrelated tabs are never recorded, and it is never always-on.
 - Sessions live in your browser (IndexedDB) until you delete them. There is no telemetry.
 - **Journey planning** sends only the page's *structure* (title, headings, nav labels, form field *types*, schema.org types). No form values, no URL query. You choose per site: *Always*, *Ask each time* (you see the exact JSON first) or *Never*.
 - **The audit** sends a minimized, redacted payload that you preview and confirm: emails, phone numbers and hashes become shape-preserving placeholders (`[email:plaintext]`, `[sha256:64hex]`), URL queries are dropped, IDs in paths become `:id`. If the payload still looks like it contains personal data, sending is blocked.
 - **Your API key is stored unencrypted** in `chrome.storage.local`. Use a dedicated key with a spending cap.
-- Permissions: `webRequest` + all-sites host access (to see tag requests, including first-party server-side endpoints), `storage`, `scripting`/`activeTab` (page structure for planning), `sidePanel`.
+- Permissions: `webRequest` + all-sites host access (to see tag requests, including first-party server-side endpoints), `storage`, `scripting`/`activeTab` (page structure for planning), `sidePanel`, and `webNavigation` (to follow tabs that the recorded tab opens, such as a product opened in a new tab).
 
 ## Develop
 
@@ -98,6 +98,6 @@ tests/          vitest suites
 
 All six MVP tasks (T1-T6) plus vendor selection, the Google Ads vendor, the live panel and session history are implemented and unit-tested. The "Done when" checks that need real accounts are still open: capture accuracy against GA4 DebugView on real sites, and the live-provider runs of Test connection, the planner eval and the audit eval. See [`kanban.md`](kanban.md) for the exact list and the next task.
 
-Known limits: Chrome-family browsers only (Safari is a backlog item); one recorded tab per session; Google Ads parameter names are written from documentation and need confirmation against live captures.
+Known limits: Chrome-family browsers only (Safari is a backlog item); a session follows tabs opened *from* the recorded tab (links with `target=_blank`, `window.open`) but not tabs you open yourself; Google Ads parameter names are written from documentation and need confirmation against live captures.
 
 There is no license file yet; until one is added, all rights are reserved by the author.
