@@ -3,7 +3,8 @@ import { looksLikeTag } from "../vendors/tagHint";
 import type { Marker, RawRequest, SessionMeta } from "../shared/types";
 import { DEFAULT_VENDORS } from "../shared/vendors";
 import { applyBadge, clearBadge } from "./badge";
-import { patchRequest, putEvents, putRequest, putSession, updateTransport, type StoredEvent } from "./store";
+import { patchRequest, putEvents, putPush, putRequest, putSession, updateTransport, type StoredEvent } from "./store";
+import { pagePath, toPushFields } from "../shared/datalayer";
 
 const KEY = "session";
 
@@ -246,7 +247,10 @@ export function handleRequest(req: RawRequest): Promise<void> {
         const rawRef = `req_${String(s.nextReq++).padStart(4, "0")}`;
         rows = parsed.map((p) => {
           const id = `evt_${String(s.nextEvt++).padStart(4, "0")}`;
-          return { ...p, id, t, page: { ...p.page, step }, raw_ref: rawRef, sessionId: s.id, requestId: req.requestId, key: `${s.id}/${id}` };
+          return {
+            ...p, id, t, page: { ...p.page, step }, raw_ref: rawRef, sessionId: s.id, requestId: req.requestId, key: `${s.id}/${id}`,
+            ...(req.documentId ? { documentId: req.documentId } : {}), ...(req.tabId >= 0 ? { tabId: req.tabId } : {}),
+          };
         });
         s.eventCount += rows.length;
         s.vendor_counts = { ...s.vendor_counts, [matcher.id]: (s.vendor_counts?.[matcher.id] ?? 0) + rows.length };
@@ -270,6 +274,46 @@ export function handleRequest(req: RawRequest): Promise<void> {
         body: req.body ? req.body.slice(0, BODY_LIMIT) : undefined,
       });
     }
+  });
+}
+
+/** Is this tab part of the running recording? Serialized, so it sees a followTab that came first. */
+export function isRecordedTab(tabId: number): Promise<boolean> {
+  return serialize(async () => {
+    const s = await loadSession();
+    return !!s && s.status === "recording" && recordedTabs(s).includes(tabId);
+  });
+}
+
+const MAX_STORED_PUSHES = 2000;
+
+/** Where a dataLayer push came from: the sending tab's top frame (from chrome.runtime.MessageSender). */
+export interface PushSender { tabId?: number; frameId?: number; documentId?: string; url?: string }
+
+/** B2: store one dataLayer push reported by the observer in a recorded tab. Anything else is dropped. */
+export function handleDataLayerPush(from: PushSender, raw: unknown): Promise<boolean> {
+  return serialize(async () => {
+    const s = await loadSession();
+    if (!s || s.status !== "recording" || from.tabId === undefined || from.frameId !== 0 || !recordedTabs(s).includes(from.tabId)) return false;
+    if ((s.push_count ?? 0) >= MAX_STORED_PUSHES) return false;
+    const f = toPushFields(raw);
+    if (!f) return false;
+    const { at, ...fields } = f;
+    const n = s.nextPush ?? 1;
+    const id = `dl_${String(n).padStart(4, "0")}`;
+    s.nextPush = n + 1;
+    s.push_count = (s.push_count ?? 0) + 1;
+    await saveSession(s);
+    await putPush({
+      ...fields,
+      key: `${s.id}/${id}`, sessionId: s.id, id,
+      t: Math.max(0, (at - s.startedAt) / 1000),
+      tabId: from.tabId,
+      documentId: from.documentId,
+      path: pagePath(from.url),
+      step: s.markers.length ? s.markers[s.markers.length - 1].id : undefined,
+    });
+    return true;
   });
 }
 

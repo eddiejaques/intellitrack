@@ -3,6 +3,8 @@ import {
   addMarker,
   clearSession,
   followTab,
+  handleDataLayerPush,
+  isRecordedTab,
   noteTagLoad,
   tagLibraryId,
   restoreBadge,
@@ -17,7 +19,8 @@ import {
   updateSession,
 } from "./capture";
 import { VENDOR_OPTIONS } from "../shared/vendors";
-import { deleteSession, putSession, getEvents, getReport, getRequests, getSession, listReports, listSessions, putReport } from "./store";
+import { deleteSession, putSession, getEvents, getPushes, getReport, getRequests, getSession, listReports, listSessions, putReport } from "./store";
+import { installDataLayerObserver, installDataLayerRelay } from "../content/dataLayer";
 import { createProvider, testConnection } from "../llm";
 import { loadConfig } from "../llm/config";
 import { getConsent, setConsent } from "../llm/consent";
@@ -45,6 +48,19 @@ const plannerDeps: PlannerDeps = {
   now: () => Date.now(),
 };
 
+/**
+ * B2: put the dataLayer observer into one recorded tab's page: the relay (isolated world) first, so
+ * it is listening, then the observer (MAIN world). Injected per tab, not registered for all URLs,
+ * so unrecorded tabs never run it. Pushes made before injection are still in the array and replayed.
+ */
+async function injectObserver(tabId: number, documentId?: string): Promise<void> {
+  const target = documentId ? { tabId, documentIds: [documentId] } : { tabId, frameIds: [0] };
+  try {
+    await chrome.scripting.executeScript({ target, func: installDataLayerRelay, injectImmediately: true });
+    await chrome.scripting.executeScript({ target, world: "MAIN", func: installDataLayerObserver, args: [[]], injectImmediately: true });
+  } catch { /* chrome:// pages, the Web Store, closed tabs: nothing to observe */ }
+}
+
 // The worker may have been suspended: rebuild the badge from persisted state on every wake.
 void restoreBadge();
 chrome.runtime.onStartup.addListener(() => void restoreBadge());
@@ -66,6 +82,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       type: d.type,
       timeStamp: d.timeStamp,
       body: decodeRawBody(d.requestBody?.raw as { bytes?: ArrayBuffer }[] | undefined),
+      documentId: d.documentId,
     };
     void handleRequest(req);
   },
@@ -89,6 +106,12 @@ chrome.webRequest.onErrorOccurred.addListener(
 
 chrome.tabs.onCreated.addListener((tab) => {
   if (tab.id !== undefined && tab.openerTabId !== undefined) void followTab(tab.openerTabId, tab.id);
+});
+
+// Every new page load in a recorded tab gets the observer as early as Chrome allows.
+chrome.webNavigation.onCommitted.addListener((d) => {
+  if (d.frameId !== 0) return;
+  void isRecordedTab(d.tabId).then((yes) => { if (yes) void injectObserver(d.tabId, d.documentId); });
 });
 
 // A new tab created to host a navigation (target=_blank links, window.open): the source tab is exact,
@@ -119,8 +142,15 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
       }
       case "hello":
         return { build: __BUILD_ID__ };
-      case "start":
-        return startSession(msg.tabId);
+      case "start": {
+        const s = await startSession(msg.tabId);
+        await injectObserver(msg.tabId);
+        return s;
+      }
+      case "dataLayerPush":
+        return handleDataLayerPush({ tabId: _sender.tab?.id, frameId: _sender.frameId, documentId: _sender.documentId, url: _sender.url ?? _sender.tab?.url }, msg.push);
+      case "getPushes":
+        return getPushes(msg.sessionId);
       case "stop":
         return stopSession();
       case "clear":
