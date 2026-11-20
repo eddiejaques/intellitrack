@@ -1,0 +1,14 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Warenkorb | Test Shop</title>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-TEST123456"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){ dataLayer.push(arguments); }
+gtag('consent', 'default', { ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', wait_for_update: 500 });
+gtag('js', new Date());
+gtag('config', 'G-TEST123456');
+gtag('event', 'view_cart', { currency: 'EUR', value: 49.9, items: [{ item_id: 'SKU1', item_name: 'Sofa', price: 49.9, quantity: 1 }] });
+setTimeout(() => gtag('consent', 'update', { analytics_storage: 'granted' }), 3000);
+setTimeout(() => { location.hash = '#sidebar'; gtag('event', 'begin_checkout', { currency: 'EUR', value: 49.9 }); }, 5000);
+</script></head><body><h1>Warenkorb</h1>
+<script>setTimeout(()=>{ const i=new Image(); i.src='https://example.com/analytics/pixel.gif?uid=abc'; navigator.sendBeacon('https://example.com/collect-custom', 'x=1'); }, 4000);</script>
+<script>setTimeout(()=>{ fetch('http://localhost:8123/ga/x7f3?v=2&tid=G-SGTM00001&cid=77.88&en=add_to_cart&cu=EUR&epn.value=49.9',{method:'POST',keepalive:true}).catch(()=>{}); },4500);</script><script>setTimeout(()=>{ const i=new Image(); i.src='https://www.googleadservices.com/pagead/conversion/123456789/?label=AbCdEf&value=49.9&currency_code=EUR&oid=T-1001&random='+Date.now(); },5200);</script></body></html>

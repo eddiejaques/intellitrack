@@ -72,7 +72,8 @@ npm run typecheck   # tsc --noEmit
 npm test            # vitest (unit tests, mocked chrome APIs and endpoints)
 npm run eval -- --mock                       # offline eval harness self-check
 npm run eval -- --config eval.config.json    # score real providers (see eval.config.example.json)
-npm run kanban      # regenerate kanban.md from plan.md
+npm run e2e         # real-Chrome smoke test against the local test site (needs `npx playwright install chromium` once)
+npm run kanban      # regenerate kanban.md; `-- next`, `-- set <ID> <status>` move cards
 ```
 
 ```
@@ -92,7 +93,7 @@ tests/          vitest suites
 
 **Add a vendor:** implement a `VendorMatcher` (`urlHint`, `match`, `parse`, `piiPolicy`) in `extension/src/vendors/`, register it in `vendors/index.ts` and `shared/vendors.ts`, and add parser tests with real captured requests. See `googleAds.ts` for a compact example.
 
-**Workflow:** one branch per task or backlog item (`b2-datalayer`, `fix-...`), merged to `main` when its checks pass. Planning lives in [`plan.md`](plan.md) (scope, architecture, prioritized backlog); [`kanban.md`](kanban.md) is generated from it and shows progress and the next task.
+**Workflow:** two Claude Code sessions share one board. A dev agent in a separate worktree runs `/start`: it takes Ready cards one at a time, works on a branch per card, and pushes it for review, or blocks the card with a written question. A review session on `main` adds cards, answers blockers and merges. See [`docs/dev-workflow.md`](docs/dev-workflow.md). Planning lives in [`plan.md`](plan.md), cards in [`tasks/`](tasks), and the board in [`kanban.md`](kanban.md).
 
 ## Status
 
