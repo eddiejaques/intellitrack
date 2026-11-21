@@ -98,7 +98,8 @@ export async function launch({ dist = resolve("dist"), port = 9333 } = {}) {
   const tabId = async (prefix) => (await ext(`chrome.tabs.query({}).then(t=>t.map(x=>({id:x.id,url:x.url})))`)).find((t) => (t.url ?? "").startsWith(prefix))?.id;
   const click = (selector) => evalIn(page.sid, `document.querySelector(${JSON.stringify(selector)}).click()`);
   const screenshot = async (file, width, height, extPage) => {
-    if (extPage) { await send("Page.navigate", { url: `chrome-extension://${extId}/${extPage}` }, es); await sleep(1500); }
+    // extPage: an extension page (popup.html), or a full http(s)/data: URL
+    if (extPage) { await send("Page.navigate", { url: /^(https?|data):/.test(extPage) ? extPage : `chrome-extension://${extId}/${extPage}` }, es); await sleep(1500); }
     await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, es);
     await sleep(500);
     const shot = await send("Page.captureScreenshot", { format: "png" }, es);
