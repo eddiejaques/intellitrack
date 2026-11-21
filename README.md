@@ -58,6 +58,8 @@ More detail for each of these is in **[docs/workflows.md](docs/workflows.md)**:
 
 ## Privacy
 
+The full privacy policy is at **https://eddiejaques.github.io/intellitrack/privacy.html** (source: `site/privacy.html`).
+
 - Recording covers **the tab where you pressed Start and tabs it opens** (a product opened in a new tab, a checkout pop-up). Unrelated tabs are never recorded, and it is never always-on.
 - Sessions live in your browser (IndexedDB) until you delete them. There is no telemetry.
 - **Journey planning** sends only the page's *structure* (title, headings, nav labels, form field *types*, schema.org types). No form values, no URL query. You choose per site: *Always*, *Ask each time* (you see the exact JSON first) or *Never*.
