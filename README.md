@@ -21,6 +21,8 @@
 
 Rules cover: missing events and parameters per journey step, `value` vs. items total, missing `transaction_id`/currency, duplicate conversions, double-fired events, plaintext personal data, consent signals, `client_id` changes, failed or blocked hits, and GA4/Ads mismatches.
 
+The audit knows what kind of page each event fired on. While you record, IntelliTrack reads every page you visit and classifies it as home, listing, product, cart, checkout, confirmation, content, lead form, account, search or other. It also notes the tag managers and IDs, the consent banner (OneTrust, Cookiebot, Usercentrics, Didomi, Quantcast, or a generic cookie banner) and the shop platform. From those pages it works out whether the site is a shop, lead generation, content or other. E-commerce checks (items, `value`, currency) only apply to e-commerce events and to events on shop pages, so a home or blog page isn't faulted for missing product fields. The popup and live panel show what was detected, for example "Shop · product page".
+
 ## Install
 
 Requires Chrome (or Edge, Brave, Arc) 116+ and Node 20+.
@@ -62,6 +64,7 @@ The full privacy policy is at **https://eddiejaques.github.io/intellitrack/priva
 
 - Recording covers **the tab where you pressed Start and tabs it opens** (a product opened in a new tab, a checkout pop-up). Unrelated tabs are never recorded, and it is never always-on.
 - Sessions live in your browser (IndexedDB) until you delete them. There is no telemetry.
+- **Page context while recording**: each recorded page's *structure* is read in your browser to decide its page type: schema.org types, og:type, form field *types*, whether there's a price, an add-to-cart button, an article or a password field, and which consent banner and platform are loaded. No form values, input names, page text, URL queries or cookies. Only the page type, the consent banner and the platform are kept, by path. The audit payload carries a `site` block (type, reason, tag IDs, consent banner, platform) and a `page_type` per page.
 - **Journey planning** sends only the page's *structure* (title, headings, nav labels, form field *types*, schema.org types). No form values, no URL query. You choose per site: *Always*, *Ask each time* (you see the exact JSON first) or *Never*.
 - **The audit** sends a minimized, redacted payload that you preview and confirm: emails, phone numbers and hashes become shape-preserving placeholders (`[email:plaintext]`, `[sha256:64hex]`), URL queries are dropped, IDs in paths become `:id`. If the payload still looks like it contains personal data, sending is blocked.
 - **Your API key is stored unencrypted** in `chrome.storage.local`. Use a dedicated key with a spending cap.

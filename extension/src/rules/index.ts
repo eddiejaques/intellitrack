@@ -4,9 +4,15 @@ import { ecommerceRules, isEcommerceSession } from "./ecommerce";
 import { planRule, type PlanRuleOptions } from "./plan";
 import { universalRules } from "./universal";
 import { SEVERITY_ORDER, type RawFinding } from "./util";
+import { normalizePath } from "../minimize/redact";
+import type { PageType, SiteType } from "../shared/siteContext";
 
 export interface RuleOptions extends PlanRuleOptions {
   plan?: JourneyPlan;
+  /** X1: the inferred site type, used when there is no confirmed plan */
+  site?: SiteType;
+  /** X1: page type per normalised path, from the pages captured during recording */
+  pageTypes?: Record<string, PageType>;
 }
 
 /** Runs locally on unredacted events. Findings never embed raw values (only names, counts, event IDs). */
@@ -24,8 +30,12 @@ export function runRules(
     coverage = p.coverage;
   }
   raw.push(...adsRules(events));
-  const ecom = opts.plan ? opts.plan.site_type === "ecommerce" : isEcommerceSession(events);
-  if (ecom) raw.push(...ecommerceRules(events));
+  const ecom = opts.plan
+    ? opts.plan.site_type === "ecommerce"
+    : isEcommerceSession(events) || opts.site === "ecommerce";
+  const types = opts.pageTypes;
+  const pageType = types ? (e: NormalizedEvent) => (e.page.path === undefined ? undefined : types[normalizePath(e.page.path)]) : undefined;
+  if (ecom) raw.push(...ecommerceRules(events, pageType));
 
   const findings = raw
     .map((f, i) => ({ f, i }))
