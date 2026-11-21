@@ -9,6 +9,7 @@ import { DEFAULT_VENDORS, selectedEventCount, sessionVendors } from "../shared/v
 import type { PlanResult } from "../background/planner";
 import type { StoredEvent } from "../background/store";
 import type { CoverageEntry, Message, SessionMeta } from "../shared/types";
+import { contextLabel } from "../shared/siteContext";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const send = <T>(m: Message): Promise<T> => chrome.runtime.sendMessage(m);
@@ -28,6 +29,7 @@ function h(tag: string, attrs: Record<string, string | boolean | ((e: Event) => 
 const btn = (label: string, cls: string, onclick: () => void | Promise<void>) => h("button", { class: `btn ${cls}`, onclick: () => void onclick() }, label);
 
 let session: SessionMeta | undefined;
+let activeTabId: number | undefined;
 let events: StoredEvent[] = [];
 /** transient planner UI state: consent prompt, confirm prompt, manual picker or an error */
 let planUi: PlanResult | undefined;
@@ -160,6 +162,9 @@ function render() {
   $("status").textContent = rec ? "Recording" : session ? "Stopped" : "Ready";
   $("dot").className = `dot ${rec ? "rec" : session ? "done" : ""}`;
   $("count").textContent = String(session ? selectedEventCount(session) : 0);
+  const where = contextLabel(session?.site_context?.pages, activeTabId);
+  $("site-context").textContent = where ?? "";
+  $("site-context").classList.toggle("hide", !where);
   const chosen = session ? sessionVendors(session) : defaultVendors;
   $("vendors").replaceChildren(vendorPicker(chosen, session?.vendor_counts, async (next) => {
     await saveVendors(next, { sessionId: session?.id, asDefault: true });
@@ -184,6 +189,7 @@ async function refresh() {
   try {
     try { const r = await chrome.storage.local.get("default_vendors"); if (Array.isArray(r.default_vendors)) defaultVendors = r.default_vendors; } catch { /* ignore */ }
     session = await send<SessionMeta | undefined>({ type: "getState" });
+    try { activeTabId = (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id; } catch { /* no tabs API */ }
     events = session?.plan ? await send<StoredEvent[]>({ type: "getEvents", sessionId: session.id }) : [];
   } finally {
     refreshing = false;

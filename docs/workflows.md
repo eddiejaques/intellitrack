@@ -29,18 +29,20 @@ Skip this if you only want rule-based audits.
 2. Open IntelliTrack → **Start recording**. The live side panel opens.
 3. **First time on this site:** IntelliTrack asks whether page *structure* may be sent to your LLM to propose a journey. *Always for this site*, *Ask each time* (you see the JSON first) or *Never* (you pick the site type yourself).
 4. A **journey plan** appears: the steps a visitor takes and the GA4 events expected at each. Only the first journey is selected by default. Switch journeys or steps on and off with the toggles. **Re-plan** asks again (rate-limited by your budget).
-5. **Do the journey for real.** Accept the cookie banner, open a product, add to cart, start checkout. As each expected event arrives its step ticks in the popup.
-6. Optionally press **Mark** on a step when you start it. This ties the events that follow to that step, which makes "missing at step X" findings precise.
-7. Press **Stop recording**.
-8. Open **Sessions** (popup → *Sessions*) and click **Run LLM audit** on your session.
-9. On the preview page, check the findings the rules already found, the journey coverage, the **privacy check** and the payload. Make sure *Vendors in this audit* is what you want.
-10. **Confirm & send to my LLM.** The report opens: a score, a headline, journey coverage and findings grouped by severity. Each finding is tagged **rule** or **LLM**, cites the events it is about, and says how to fix it.
+5. The popup and the live panel show what IntelliTrack detected about the site and the current page, for example *Shop · product page* or *Content site · content page*. It reads every page you visit while recording, so this updates as you browse.
+6. **Do the journey for real.** Accept the cookie banner, open a product, add to cart, start checkout. As each expected event arrives its step ticks in the popup.
+7. Optionally press **Mark** on a step when you start it. This ties the events that follow to that step, which makes "missing at step X" findings precise.
+8. Press **Stop recording**.
+9. Open **Sessions** (popup → *Sessions*) and click **Run LLM audit** on your session.
+10. On the preview page, check the findings the rules already found, the journey coverage, the **privacy check** and the payload. Make sure *Vendors in this audit* is what you want.
+11. **Confirm & send to my LLM.** The report opens: a score, a headline, journey coverage and findings grouped by severity. Each finding is tagged **rule** or **LLM**, cites the events it is about, and says how to fix it.
 
 How to read the report:
 - Findings that cite an event that does not exist are discarded automatically (the report tells you how many).
 - An LLM can *confirm* a rule finding or flag it as *needs context*. It can only *dispute* one by pointing at specific events, otherwise the rule finding stands.
 - The score is computed locally from the findings, so the same findings always give the same score.
 - If the LLM call fails, you still get the rule findings, labelled "LLM review failed".
+- Events are judged against the page they fired on. A home or blog page with only `page_view` and `scroll` gets no "missing items or currency" finding. E-commerce events, and events with a `value` on product, cart or checkout pages, are still checked. Without a confirmed plan, a shop detected while recording also switches the e-commerce checks on.
 
 ## 2. Quick check with no LLM
 

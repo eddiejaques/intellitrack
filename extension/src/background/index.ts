@@ -23,6 +23,7 @@ import { loadConfig } from "../llm/config";
 import { getConsent, setConsent } from "../llm/consent";
 import { extractPageContext } from "../content/pageContext";
 import { runAudit } from "./audit";
+import { schedulePageCapture } from "./siteContext";
 import { applyTemplate, runPlanner, type PlannerDeps } from "./planner";
 import type { Message, RawRequest, SessionSummary } from "../shared/types";
 
@@ -97,6 +98,8 @@ chrome.webNavigation.onCreatedNavigationTarget.addListener((d) => void followTab
 
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (info.url) void noteTabUrl(tabId, info.url);
+  // X1: read the page's context after load and after SPA URL changes (debounced)
+  if (info.url || info.status === "complete") schedulePageCapture(tabId);
   // per-tab badge text can be reset by navigation; put it back
   if (info.status === "loading" || info.status === "complete") void restoreBadge();
 });
@@ -119,8 +122,11 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
       }
       case "hello":
         return { build: __BUILD_ID__ };
-      case "start":
-        return startSession(msg.tabId);
+      case "start": {
+        const s = await startSession(msg.tabId);
+        schedulePageCapture(msg.tabId);
+        return s;
+      }
       case "stop":
         return stopSession();
       case "clear":
