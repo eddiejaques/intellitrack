@@ -13,10 +13,10 @@ The board is a GitHub Project (`npm run -s kanban` prints its URL). Each card is
 
 ## 1. Briefing
 Run `npm run -s kanban` and `gh pr list --state open`, then give a short briefing, most urgent first:
-1. **Blocked:** for each card, `npm run -s kanban -- show <ID>` and give the latest `agent · blocked` comment: the question and the options.
+1. **Blocked:** for each card, `npm run -s kanban -- show <ID>` and give the latest `agent · blocked` or `agent · clarify` comment: the question and the options. Mark the `clarify` ones as "needs clarification (spec only)".
 2. **Waiting for review:** each card in Review with its PR (number, title, `gh pr view <n> --json additions,deletions,commits`), and the agent's latest note.
 3. **Ready queue:** in the order the agent will take it (`npm run -s kanban -- next` is first). Flag any without acceptance criteria.
-4. **Next to refine:** the top 3 Backlog cards (by Prio) whose criteria are still placeholders.
+4. **Refined by the agent, waiting for you:** Backlog cards whose latest comment is an `agent · refine` summary, one line each; the user moves it to Ready (or comments for another pass). Then the top 3 Backlog cards (by Prio) whose criteria are still placeholders.
 
 End with one line: "What do you want to do? (add / refine / prioritise / answer / review / merge)".
 
@@ -35,7 +35,7 @@ End with one line: "What do you want to do? (add / refine / prioritise / answer 
 4. Move it to Ready when the user says so: `npm run -s kanban -- set <ID> ready`. `--prio -1` puts it first.
 
 **Refine an existing task**, e.g. "refine B5", or "B3 should also cover forms"
-- No branch yet: rewrite the issue body (`gh issue edit <n> --body-file <file>`), using the plan.md §9 row and the §10 vendor notes.
+- No branch yet: rewrite the issue body (`gh issue edit <n> --body-file <file>`), using the plan.md §9 row and the §10 vendor notes. If the dev agent already refined it, build on its spec rather than starting over. (The agent refines Backlog cards itself when idle; a PM comment on a Backlog card asks it for another pass.)
 - Has a branch (it was blocked or reviewed): leave the body and add `npm run -s kanban -- comment <ID> --kind change --body-file <file>`, so the agent sees what changed.
 - Changes to scope, size or order in the plan itself: also edit the plan.md §9 table row.
 
@@ -45,6 +45,7 @@ End with one line: "What do you want to do? (add / refine / prioritise / answer 
 **Answer a blocker**
 - `npm run -s kanban -- comment <ID> --kind answer "<the user's decision in their words, plus the concrete consequence for the code>"`
 - Then `npm run -s kanban -- set <ID> ready`. The agent resumes on the card's existing branch.
+- If the question was an `agent · clarify` (a Backlog card that needs clarification), post the answer the same way but **leave the card in Blocked**: the agent refines the spec with the answer and moves it back to Backlog, and the user moves it to Ready when they're happy.
 
 **Review a PR**, e.g. "review B2"
 1. `gh pr view <n>` and `gh pr diff <n>`, and read the diff.
