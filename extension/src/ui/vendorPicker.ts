@@ -33,3 +33,29 @@ export function vendorPicker(selected: string[], counts: Record<string, number> 
 /** Persist a choice for one session and/or as the default for new sessions. */
 export const saveVendors = (vendors: string[], opts: { sessionId?: string; asDefault?: boolean }) =>
   send<string[]>({ type: "setVendors", vendors, sessionId: opts.sessionId, asDefault: opts.asDefault });
+
+/**
+ * X18: which single GA4 property (out of several seen in the session) to audit. Same pill pattern as
+ * `vendorPicker`, but single-select: exactly one property is active, never zero and never more than one.
+ */
+export function propertyPicker(properties: string[], selected: string, onPick: (next: string) => void): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "pills";
+  wrap.setAttribute("role", "group");
+  wrap.setAttribute("aria-label", "GA4 property to audit");
+  for (const p of properties) {
+    const on = p === selected;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `pill ${on ? "on" : ""}`.trim();
+    b.setAttribute("aria-pressed", String(on));
+    b.title = on ? `Auditing ${p}` : `Click to audit ${p} instead`;
+    b.textContent = p;
+    b.addEventListener("click", () => { if (!on) onPick(p); });
+    wrap.append(b);
+  }
+  return wrap;
+}
+
+/** Persist the GA4 property choice for one session. */
+export const saveGa4Property = (property: string, sessionId: string) => send<string>({ type: "setGa4Property", property, sessionId });

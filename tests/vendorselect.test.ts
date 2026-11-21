@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_VENDORS, selectedEventCount, sessionVendors } from "../extension/src/shared/vendors";
+import { DEFAULT_VENDORS, ga4Properties, selectedEventCount, sessionGa4Property, sessionVendors } from "../extension/src/shared/vendors";
 import { guessVendor } from "../extension/src/vendors/tagHint";
 import { buildPayload } from "../extension/src/minimize";
 import { adsConversion, ecommerceWithAds, ecommercePlan, session } from "../fixtures/sessions";
@@ -15,6 +15,36 @@ describe("selection helpers", () => {
     expect(selectedEventCount({ ...s, vendors: ["google_ads"] })).toBe(2);
     expect(selectedEventCount({ ...s, vendors: [] })).toBe(0);
     expect(selectedEventCount({ eventCount: 4 })).toBe(4); // session from before per-vendor counts
+  });
+});
+
+describe("X18: one GA4 property at a time", () => {
+  const ev = (t: number, property: string, vendor = "ga4") => ({ vendor, property, t } as any);
+
+  it("lists distinct GA4 properties in first-seen order, ignoring other vendors", () => {
+    const events = [ev(2, "G-TWO"), ev(1, "G-ONE"), ev(3, "G-ONE"), ev(0, "AW-1", "google_ads")];
+    expect(ga4Properties(events)).toEqual(["G-ONE", "G-TWO"]);
+  });
+
+  it("a single property (or none) needs no selection", () => {
+    expect(sessionGa4Property({}, ["G-ONE"])).toBeUndefined();
+    expect(sessionGa4Property({}, [])).toBeUndefined();
+  });
+
+  it("defaults to the first property seen, until the user picks another", () => {
+    const props = ["G-ONE", "G-TWO"];
+    expect(sessionGa4Property({}, props)).toBe("G-ONE");
+    expect(sessionGa4Property({ ga4_property: "G-TWO" }, props)).toBe("G-TWO");
+  });
+
+  it("falls back to the first property if the stored choice is no longer present", () => {
+    expect(sessionGa4Property({ ga4_property: "G-GONE" }, ["G-ONE", "G-TWO"])).toBe("G-ONE");
+  });
+
+  it("scoping events to one property keeps every other vendor untouched", () => {
+    const events = [ev(0, "G-ONE"), ev(1, "G-TWO"), ev(2, "AW-1", "google_ads")];
+    const scoped = events.filter((e) => e.vendor !== "ga4" || e.property === "G-ONE");
+    expect(scoped.map((e) => e.property)).toEqual(["G-ONE", "AW-1"]);
   });
 });
 
