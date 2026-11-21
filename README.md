@@ -35,6 +35,8 @@ npm run build
 
 Then in Chrome: open `chrome://extensions`, switch on **Developer mode**, click **Load unpacked** and choose the `dist/` folder. Pin IntelliTrack to the toolbar.
 
+> **Pilot users** install it from the unlisted Chrome Web Store link instead and get updates automatically. The version is shown in the popup footer and in Settings. Releases are described in [`docs/release.md`](docs/release.md).
+
 > After every `npm run build`, click the reload icon on the IntelliTrack card and reopen any IntelliTrack tabs. If you forget, the pages tell you the background worker is out of date.
 
 ## Quick start (5 minutes)
@@ -76,7 +78,12 @@ npm run eval -- --mock                       # offline eval harness self-check
 npm run eval -- --config eval.config.json    # score real providers (see eval.config.example.json)
 npm run e2e         # real-Chrome smoke test against the local test site (needs `npx playwright install chromium` once)
 npm run kanban      # board summary (GitHub Project); `-- next`, `-- show <ID>`, `-- set <ID> <status>`
+npm run package     # build and zip dist/ into release/intellitrack-X.Y.Z.zip for the Chrome Web Store (checked)
+npm run e2e -- --from-zip release/intellitrack-X.Y.Z.zip   # the smoke test against that exact zip
+npm run release -- minor   # bump the version, CHANGELOG entry, commit and tag (then git push origin main --follow-tags)
 ```
+
+Releases: the version lives only in `package.json`. Pushing a `vX.Y.Z` tag runs the release pipeline (checks, package, e2e on the zip, GitHub Release, Chrome Web Store upload). See [`docs/release.md`](docs/release.md) and, for the listing and permission justifications, [`docs/store-listing.md`](docs/store-listing.md). What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ```
 extension/src/

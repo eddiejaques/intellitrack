@@ -3,8 +3,10 @@
 //   npm run build && npm run e2e
 // Checks marked (network) need internet, because the page loads the real gtag.js; they warn instead of fail offline.
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-import { extname, join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launch, sleep } from "./cdp.mjs";
 
@@ -25,7 +27,21 @@ const check = (ok, label, network = false) => {
   console.log(`${ok ? "PASS" : network ? "WARN" : "FAIL"}  ${label}${!ok && network ? " (needs internet)" : ""}`);
 };
 
-const b = await launch();
+// --from-zip release/intellitrack-X.Y.Z.zip: test exactly what would be uploaded to the store
+const zipArg = process.argv.indexOf("--from-zip");
+let dist = resolve("dist");
+if (zipArg >= 0) {
+  const zip = process.argv[zipArg + 1];
+  if (!zip) throw new Error("usage: npm run e2e -- --from-zip release/intellitrack-X.Y.Z.zip");
+  dist = mkdtempSync(join(tmpdir(), "it-zip-"));
+  execFileSync("unzip", ["-q", resolve(zip), "-d", dist]);
+  console.log(`testing the packaged zip ${zip} (unpacked to ${dist})`);
+}
+const { version } = JSON.parse(readFileSync("package.json", "utf8"));
+
+const b = await launch({ dist });
+// the version people see is the one the manifest carries
+check((await b.ext("chrome.runtime.getManifest().version")) === version, `installed extension is v${version}`);
 try {
   // 1. cart page: gtag GA4, a custom-path server-side GA4 hit, a Google Ads conversion
   await b.goto("http://localhost:8123/home.html", 1500);
@@ -83,6 +99,14 @@ try {
   pushes = await b.msg({ type: "getPushes", sessionId: s2.id });
   check(pushes.some((p) => p.name === "view_item" && p.tabId !== tab), "dataLayer pushes from a followed new tab are recorded");
   await b.msg({ type: "stop" });
+
+  // 2b. the popup and Settings show the version
+  for (const p of ["popup.html", "options.html"]) {
+    await b.extGoto(p, 800);
+    const label = await b.ext(`document.getElementById("version")?.textContent ?? ""`);
+    check(label === `IntelliTrack v${version}`, `${p.replace(".html", "")} shows "${label}"`);
+  }
+  await b.extGoto("options.html", 300);
 
   // 3. sessions stay separate
   const list = await b.msg({ type: "listSessions" });

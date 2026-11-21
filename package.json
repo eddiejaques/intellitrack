@@ -10,7 +10,9 @@
     "test": "vitest run",
     "eval": "node scripts/run-eval.mjs",
     "kanban": "node scripts/kanban.mjs",
-    "e2e": "node scripts/e2e/smoke.mjs"
+    "e2e": "node scripts/e2e/smoke.mjs",
+    "package": "node scripts/package.mjs",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.7",

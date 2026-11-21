@@ -1,7 +1,6 @@
 {
   "manifest_version": 3,
   "name": "IntelliTrack",
-  "version": "0.1.0",
   "description": "Record tracking tags during a user-driven journey and audit them with your own LLM.",
   "permissions": ["webRequest", "storage", "scripting", "activeTab", "unlimitedStorage", "sidePanel", "webNavigation"],
   "side_panel": { "default_path": "panel.html" },

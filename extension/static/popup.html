@@ -39,6 +39,7 @@
 
   .markers { display: flex; flex-wrap: wrap; gap: 6px; }
   footer { display: flex; align-items: center; gap: 2px; padding-top: 2px; }
+  .app-version { text-align: center; }
   pre.json { max-height: 150px; }
 </style></head>
 <body>
@@ -75,6 +76,7 @@
     <span class="spacer"></span>
     <button id="preview" class="btn secondary">Audit with LLM →</button>
   </footer>
+  <div id="version" class="hint app-version"></div>
 </div>
 <script src="popup.js"></script>
 </body></html>
