@@ -66,6 +66,11 @@ try {
   await b.goto("http://localhost:8123/home.html", 1500);
   const s2 = await b.msg({ type: "start", tabId: tab });
   await b.goto("http://localhost:8123/home.html", 2500);
+  // an SPA navigation (pushState, no page load) is captured as its own page
+  await b.evalPage(`history.pushState({}, "", "/blog/post-1")`);
+  await sleep(2500);
+  state = await b.msg({ type: "getState" });
+  check(typeOf(state, "/blog/post-1") === "content", `SPA URL change is captured and classified content (got ${typeOf(state, "/blog/post-1")})`);
   await b.click("#p");
   await sleep(6000);
   events = await b.msg({ type: "getEvents", sessionId: s2.id });
