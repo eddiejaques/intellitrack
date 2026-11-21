@@ -10,7 +10,10 @@ Two Claude Code sessions, one board. The board is the GitHub Project **[IntelliT
 ```
  you, in the browser (or the review session)           dev agent (../Intellitrack-dev worktree)
  ───────────────────────────────────────────           ────────────────────────────────────────
- create an issue, write criteria, drag to Ready ──▶     start: branch → build → test, [agent · progress] comments
+ create an issue in Backlog                     ──▶     refine (when idle): short spec, [agent · refine] summary
+ answer a "Needs clarification" question        ◀──▶    unclear scope: [agent · clarify] question, card → Blocked
+ comment on a Backlog card (more detail)        ◀──▶    refine again: body updated, no branch, no code
+ read the spec, drag to Ready                   ──▶     start: branch → build → test, [agent · progress] comments
  comment on a Blocked card (the answer)         ◀──▶    blocked: WIP pushed + [agent · blocked] question
  comment on a Review card (feedback)            ◀──▶    review: PR "Closes #n" + [agent · review] summary
  comment "I have reviewed, let's deploy"         ──▶    deploy: re-run checks, merge the PR → issue closes → Done
@@ -51,14 +54,16 @@ Depends on: B2            (optional)
 
 | Status | Who moves it there | Meaning |
 |---|---|---|
-| Backlog | (default) | Not yet specified, or not next |
-| Ready | you | The body has at least one real `- [ ]` criterion; the agent may take it |
+| Backlog | (default) | Not yet specified, or not next. The agent may refine the spec here, but never builds it |
+| Ready | **only you** | The body has at least one real `- [ ]` criterion; the agent may take it. The CLI refuses this move from the agent |
 | In progress | dev agent | One card at a time, on branch `<id>-<slug>` |
 | Blocked | dev agent | WIP pushed; its question is the latest `[agent · blocked]` comment |
 | Review | dev agent | PR open with `Closes #<issue>`, all checks pass |
 | Done | merging the PR | **Only when the PR is merged into `main`** |
 
 The agent takes the card in progress first (resume), then the Ready card with the lowest Prio.
+
+**Backlog refinement.** When nothing is Ready (and nothing waits on a deploy, answer or feedback), the agent refines Backlog cards, lowest Prio first, one at a time. It keeps the spec minimal (a one-or-two-sentence goal, 2–5 one-line criteria, the files to touch; the CLI refuses anything over 1500 characters or 6 criteria) and rewrites the issue body as Goal / Acceptance criteria / Out of scope / Notes, keeping your original text quoted under `## Original request` (the CLI adds it, so nothing you wrote is lost and old checkboxes don't count), and posts a two-or-three-line `[agent · refine]` comment. If the scope is unclear or it has a question, it doesn't guess: it posts an `[agent · clarify]` comment ("Needs clarification: …", with options) and moves the card to **Blocked**. Your answer, as a comment, sends it back to refinement, and once refined it returns to Backlog. That is all it does there: no branch, no code. Comment on the card to ask for another pass; move it to Ready when the spec looks right, and only then does work start. Cards of `type:triggered` and cards that already have a branch are skipped. `npm run kanban` lists the Backlog cards still waiting for a refinement.
 
 Comments are the conversation. You and the agent post as the same GitHub account, so the agent starts its comments with `**[agent · <kind>]**`. It keeps each issue up to date: a `progress` comment when it starts and at each meaningful step, ticked criteria in the body as they're met, a `review` summary with the PR link, and a note when it deploys.
 
@@ -68,8 +73,9 @@ Comments are the conversation. You and the agent post as the same GitHub account
 |---|---|---|
 | Review | an approval: "I have reviewed, let's deploy", "ship it", "LGTM", "approved" | re-runs the checks, merges the PR into `main` (the issue closes, the card goes Done) |
 | Review | anything else | treats it as review feedback and reworks the card on the same branch and PR |
-| Blocked | anything | treats it as the answer and resumes on the branch |
-| Ready / Backlog | anything | reads it as a note when it works on the card |
+| Blocked | anything | treats it as the answer and resumes on the branch; if its question was a `clarify` (Needs clarification) on a Backlog card, it refines the spec instead and puts the card back in Backlog |
+| Backlog | anything | refines the spec again with what you asked for (spec only, no code) |
+| Ready | anything | reads it as a note when it works on the card |
 
 A negation ("don't deploy yet", "not ready to merge") is never an approval, and if the agent isn't sure, it asks instead of merging. Only comments from your account (`eddiejaques`) count: the repo is public, and anyone else's "let's deploy" is ignored.
 
@@ -95,7 +101,7 @@ cd ~/Documents/Intellitrack-dev
 claude            # then type /development-start
 ```
 
-It takes cards one at a time. When there's nothing to do, it **waits**: it checks the board every minute in the background, and picks up a card as soon as you move one to Ready or comment on a Blocked or Review card. To stop it, type `/development-stop` in either window. The agent finishes the card it's on (to Review or Blocked, tested and pushed), doesn't take another, and stops.
+It takes cards one at a time. When there's nothing to do, it **waits**: it checks the board every minute in the background, and picks up a card as soon as you move one to Ready, comment on a Blocked, Review or Backlog card, or add a Backlog card it hasn't refined yet. To stop it, type `/development-stop` in either window. The agent finishes the card it's on (to Review or Blocked, tested and pushed), doesn't take another, and stops.
 
 ### Your changes on GitHub are kept
 

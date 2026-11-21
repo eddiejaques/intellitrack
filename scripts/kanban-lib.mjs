@@ -14,11 +14,19 @@
 //   Review card + approval ("I have reviewed, let's deploy")  -> the agent merges the PR (deploy)
 //   Review card + anything else                               -> review feedback: rework on the branch
 //   Blocked card + any comment                                -> the answer: resume on the branch
+//   Backlog card + any comment (or never refined yet)         -> refine: the agent rewrites the spec only
+//   Blocked card the agent asked a "clarify" question on      -> refine again (not "answer"): spec only
+//
+// Backlog cards are refined, never built: the agent drafts a short Goal / Acceptance criteria /
+// Out of scope / Notes in the issue body and stops there. If the scope is unclear, it doesn't guess:
+// it posts a "[agent · clarify]" question and moves the card to Blocked. Your answer sends it back to
+// refinement, and a refined card goes back to Backlog. Only the PM moves a card to Ready, and only Ready cards get
+// a branch or code.
 
 export const STATUSES = ["backlog", "ready", "in_progress", "blocked", "review", "done"];
 export const STATUS_NAMES = { backlog: "Backlog", ready: "Ready", in_progress: "In progress", blocked: "Blocked", review: "Review", done: "Done" };
 const STATUS_BY_NAME = Object.fromEntries(Object.entries(STATUS_NAMES).map(([k, v]) => [v.toLowerCase(), k]));
-export const KINDS = ["note", "answer", "feedback", "blocked", "change", "review", "approve", "progress"];
+export const KINDS = ["note", "answer", "feedback", "blocked", "change", "review", "approve", "progress", "refine", "clarify"];
 
 /** "B2: dataLayer observer" -> { id: "B2", title: "dataLayer observer" }; undefined for other titles. */
 export function parseTitle(t = "") {
@@ -54,6 +62,7 @@ export function itemToCard(node, owner) {
     activity,
   };
   card.pending = pendingAction(card, owner);
+  card.refine = needsRefine(card, owner);
   return card;
 }
 
@@ -83,9 +92,35 @@ export function pendingAction(card, owner) {
   mine.forEach((m, i) => { if (parseComment(m.body).author === "agent") last = i; });
   const fresh = mine.slice(last + 1);
   if (!fresh.length) return undefined;
-  if (card.status === "blocked") return { action: "answer", comments: fresh };
+  if (card.status === "blocked") {
+    // a clarify question was asked while refining a Backlog card: the answer means "refine again"
+    if (parseComment(mine[last]?.body).kind === "clarify") return undefined;
+    return { action: "answer", comments: fresh };
+  }
   return { action: fresh.some((m) => isApproval(m.body)) ? "deploy" : "feedback", comments: fresh };
 }
+
+/**
+ * Should the agent refine this card's spec? True for an open card without a branch (not
+ * `type:triggered`) that is either
+ *   - in Backlog, and the agent has never refined it or asked about it, or the PM commented after
+ *     the agent's latest comment (the PM's way to ask for another pass); or
+ *   - Blocked on the agent's "clarify" question, and the PM has answered it.
+ */
+export function needsRefine(card, owner) {
+  if (!owner || card.branch || card.state === "CLOSED" || card.type === "triggered") return false;
+  const mine = (card.activity ?? []).filter((m) => m.login === owner);
+  let last = -1;
+  mine.forEach((m, i) => { if (parseComment(m.body).author === "agent") last = i; });
+  const answered = last >= 0 && last < mine.length - 1;
+  if (card.status === "blocked") return answered && parseComment(mine[last].body).kind === "clarify";
+  if (card.status !== "backlog") return false;
+  const touched = mine.some((m) => { const p = parseComment(m.body); return p.author === "agent" && (p.kind === "refine" || p.kind === "clarify"); });
+  return !touched || answered;
+}
+
+/** Limits that keep a refinement minimal: the spec is a short brief, not a design doc. */
+export const REFINE_LIMITS = { chars: 1500, criteria: 6 };
 
 const byPrio = (a, b) => a.prio - b.prio || a.id.localeCompare(b.id, "en", { numeric: true });
 
@@ -96,6 +131,7 @@ const byPrio = (a, b) => a.prio - b.prio || a.id.localeCompare(b.id, "en", { num
  *   answer   a Blocked card the PM answered in a comment: resume it on its branch
  *   feedback a Review card the PM commented on: rework it on its branch
  *   start    the top Ready card (by Prio, then ID)
+ *   refine   the top Backlog card that needs its spec refined (see needsRefine); spec only, no code
  * Returns the card with `action` set, or undefined.
  */
 export function nextCard(cards) {
@@ -106,7 +142,11 @@ export function nextCard(cards) {
     if (c) return { ...c, action: a };
   }
   const ready = cards.filter((c) => c.status === "ready").sort(byPrio)[0];
-  return ready && { ...ready, action: "start" };
+  if (ready) return { ...ready, action: "start" };
+  // answered clarify questions first (the PM is waiting on those), then Backlog by Prio
+  const refine = cards.filter((c) => c.refine && ["blocked", "backlog"].includes(c.status))
+    .sort((a, b) => (a.status === "blocked" ? 0 : 1) - (b.status === "blocked" ? 0 : 1) || byPrio(a, b))[0];
+  return refine && { ...refine, action: "refine" };
 }
 
 /** Acceptance criteria as [{ n, done, text, line }] (1-based n), for `kanban -- check`. */
@@ -138,9 +178,17 @@ export const sortCards = (cards) => [...cards].sort(byPrio);
  * - Done only happens through a PR merged into main (never forced).
  * - Ready needs at least one real acceptance criterion.
  * - WIP limit 1.
+ * - Only the PM moves a card to Ready (`by: "agent"` is refused, even with force), and a Backlog card
+ *   never goes straight to In progress: it has to be made Ready first.
  */
-export function checkMove(card, status, cards = [], { force = false } = {}) {
+export function checkMove(card, status, cards = [], { force = false, by = "pm" } = {}) {
   if (!STATUSES.includes(status)) return `status must be one of ${STATUSES.join(", ")}`;
+  if (by === "agent" && status === "ready" && card.status !== "ready") {
+    return `${card.id} can't be moved to Ready by the agent: only the PM moves a card to Ready (in the browser or from review mode).`;
+  }
+  if (by === "agent" && status === "in_progress" && card.status === "backlog") {
+    return `${card.id} is in Backlog: the agent only refines Backlog cards. The PM has to move it to Ready before any work starts.`;
+  }
   if (status === "done" && !card.merged) {
     return `${card.id} can't be Done: a card is Done only when its PR ("Closes #${card.number}") is merged into main.`;
   }
@@ -176,6 +224,31 @@ export function parseComment(text = "") {
 export function hasCriteria(text = "") {
   const sec = text.split(/^## /m).find((p) => /^Acceptance criteria/i.test(p)) ?? "";
   return sec.split("\n").some((l) => /^\s*- \[[ x]\]\s+(?!_)\S/.test(l));
+}
+
+const ORIGINAL = /^## Original request[ \t]*$/m;
+
+/**
+ * The body `kanban -- refine` writes: the agent's spec, then the PM's original body under
+ * "## Original request", blockquoted so its headings and checkboxes don't count as criteria.
+ * On a later pass the existing section is kept byte for byte (never nested). An empty body or the
+ * untouched new-card skeleton has nothing worth keeping. Throws if the spec isn't usable.
+ */
+export function refinedBody(oldBody = "", spec = "") {
+  const at = (t) => { const m = ORIGINAL.exec(t); return m ? m.index : -1; };
+  const draft = (at(spec) >= 0 ? spec.slice(0, at(spec)) : spec).trimEnd();
+  const acs = draft.match(/^## Acceptance criteria/gim) ?? [];
+  if (acs.length !== 1) throw new Error(`the refined spec needs exactly one "## Acceptance criteria" section (it has ${acs.length})`);
+  if (!hasCriteria(draft)) throw new Error('the refined spec needs at least one real "- [ ] …" under "## Acceptance criteria"');
+  if (criteria(draft).some((c) => /^_/.test(c.text))) throw new Error("the refined spec still has a placeholder criterion (\"- [ ] _…\")");
+  if (criteria(draft).length > REFINE_LIMITS.criteria) throw new Error(`keep it minimal: at most ${REFINE_LIMITS.criteria} acceptance criteria (it has ${criteria(draft).length}); if the card needs more, it's too big: say so and suggest a split`);
+  if (draft.length > REFINE_LIMITS.chars) throw new Error(`keep it minimal: the spec is ${draft.length} characters, the limit is ${REFINE_LIMITS.chars}. Cut the prose, keep the criteria`);
+  let original = "";
+  if (at(oldBody) >= 0) original = oldBody.slice(at(oldBody)).trimEnd();
+  else if (oldBody.trim() && oldBody.trim() !== newCardBody().trim()) {
+    original = "## Original request\n" + oldBody.trimEnd().split("\n").map((l) => (l ? `> ${l}` : ">")).join("\n");
+  }
+  return `${draft}\n${original ? `\n${original}\n` : ""}`;
 }
 
 /** Body skeleton for a new card. The PM fills Goal and Acceptance criteria before moving it to Ready. */

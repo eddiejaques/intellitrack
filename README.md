@@ -107,7 +107,7 @@ tests/          vitest suites
 
 **Add a vendor:** implement a `VendorMatcher` (`urlHint`, `match`, `parse`, `piiPolicy`) in `extension/src/vendors/`, register it in `vendors/index.ts` and `shared/vendors.ts`, and add parser tests with real captured requests. See `googleAds.ts` for a compact example.
 
-**Workflow:** two Claude Code sessions share one board. A dev agent in a separate worktree runs `/development-start`: it takes Ready cards one at a time, works on a branch per card, and opens a PR for review, or blocks the card with a written question. A review session on `main` adds cards, answers blockers and merges PRs. See [`docs/dev-workflow.md`](docs/dev-workflow.md). Planning lives in [`plan.md`](plan.md); the cards are issues on the [GitHub board](https://github.com/users/eddiejaques/projects/1).
+**Workflow:** two Claude Code sessions share one board. A dev agent in a separate worktree runs `/development-start`: it takes Ready cards one at a time, works on a branch per card, and opens a PR for review, or blocks the card with a written question. When nothing is Ready, it refines Backlog specs (no code) until you move them to Ready. A review session on `main` adds cards, answers blockers and merges PRs. See [`docs/dev-workflow.md`](docs/dev-workflow.md). Planning lives in [`plan.md`](plan.md); the cards are issues on the [GitHub board](https://github.com/users/eddiejaques/projects/1).
 
 ## Status
 
