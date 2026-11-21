@@ -2,6 +2,9 @@ import { PROVIDERS, defaultConfig, ensureHostPermission, loadConfig, saveConfig,
 import type { LLMConfig, ProviderId } from "../llm/types";
 import type { Message } from "../shared/types";
 import type { TestResult } from "../llm";
+import { showVersion } from "./version";
+
+showVersion(document.getElementById("version"));
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const input = (id: string) => $<HTMLInputElement>(id);

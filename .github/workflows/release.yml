@@ -1,0 +1,73 @@
+# Release pipeline: runs only when a version tag (v*) is pushed, never on pull requests. The repo is
+# public, so nothing here runs for forks' pull requests, and the store step only ever sees secrets
+# on this repository. See docs/release.md.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the GitHub Release
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'eddiejaques/intellitrack'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck, test, build
+        run: npm run typecheck && npm test && npm run build
+
+      - name: Tag must equal the manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST="$(node -p 'require("./dist/manifest.json").version')"
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match the manifest version $MANIFEST. Tag with npm run release."
+            exit 1
+          fi
+          echo "VERSION=$MANIFEST" >> "$GITHUB_ENV"
+
+      - name: Package
+        run: npm run package
+
+      - name: Real-Chrome smoke test against the packaged zip
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e -- --from-zip "release/intellitrack-$VERSION.zip"
+
+      - name: GitHub Release with the zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[?" v "\\]?( |$)" { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "IntelliTrack $GITHUB_REF_NAME" > notes.md
+          gh release create "$GITHUB_REF_NAME" "release/intellitrack-$VERSION.zip" --title "IntelliTrack $GITHUB_REF_NAME" --notes-file notes.md
+
+      - name: Upload and publish to the Chrome Web Store
+        env:
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: node scripts/cws-publish.mjs "release/intellitrack-$VERSION.zip"
