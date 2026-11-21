@@ -4,7 +4,7 @@ import { extractJson } from "../extension/src/llm/json";
 import { completeValidated } from "../extension/src/llm/complete";
 import { createProvider, testConnection } from "../extension/src/llm";
 import { joinUrl, scrub } from "../extension/src/llm/http";
-import { defaultConfig, ensureHostPermission, validateConfig } from "../extension/src/llm/config";
+import { RESPONSE_LENGTH_PRESETS, defaultConfig, ensureHostPermission, responseLengthOf, validateConfig } from "../extension/src/llm/config";
 import { LLMError, type LLMConfig, type LLMProvider, type ProviderId } from "../extension/src/llm/types";
 
 const SCHEMA = {
@@ -286,6 +286,15 @@ describe("helpers", () => {
     expect(validateConfig(cfg("anthropic", { base_url: "nope" }))[0]).toMatch(/valid URL/);
     expect(validateConfig(cfg("anthropic", { max_output_tokens: 10 })).length).toBe(1);
     expect(validateConfig(cfg("anthropic", { model: " " }))).toContain("Model is required.");
+  });
+  it("X14: max output tokens goes up to 64,000, for long messages", () => {
+    expect(validateConfig(cfg("anthropic", { max_output_tokens: 64000 }))).toEqual([]);
+    expect(validateConfig(cfg("anthropic", { max_output_tokens: 64001 })).length).toBe(1);
+  });
+  it("X14: responseLengthOf matches a preset, or falls back to custom", () => {
+    for (const p of RESPONSE_LENGTH_PRESETS) expect(responseLengthOf(p.tokens)).toBe(p.id);
+    expect(responseLengthOf(4000)).toBe("medium"); // today's default
+    expect(responseLengthOf(12345)).toBe("custom");
   });
   it("ensureHostPermission asks only when the origin isn't already granted", async () => {
     const contains = vi.fn(async () => false);

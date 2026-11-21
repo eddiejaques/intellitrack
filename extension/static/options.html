@@ -19,7 +19,8 @@
     <summary>Limits &amp; budget</summary>
     <div class="card stack">
       <div class="grid2">
-        <label class="field">Max output tokens<input id="max_output_tokens" type="number" min="256" max="16000"></label>
+        <label class="field">Response length<select id="response_length"></select></label>
+        <label class="field">Max output tokens<input id="max_output_tokens" type="number" min="256" max="64000"></label>
         <label class="field">Timeout (seconds)<input id="timeout_s" type="number" min="5" max="600"></label>
         <label class="field">Plan calls per session<input id="max_per_session" type="number" min="1" max="50"></label>
         <label class="field">Seconds between plan calls<input id="min_interval_s" type="number" min="0" max="3600"></label>
