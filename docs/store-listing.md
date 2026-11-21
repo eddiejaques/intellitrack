@@ -73,6 +73,6 @@ The dashboard holds these. They aren't in the repo.
 | Asset | Size | Notes |
 |---|---|---|
 | Store icon | 128×128 PNG | `extension/static/icons/icon-128.png` |
-| Screenshots | 1280×800 (or 640×400), 1 to 5 | Suggested: popup while recording, the live side panel, the session log's Tags tab, the audit preview, the report. `SHOT=<dir> npm run e2e` makes starting points (`docs/screenshots/`). Use placeholder sites and IDs, never a real customer's. |
+| Screenshots | 1280×800 (or 640×400) JPEG or 24-bit PNG (no alpha), 1 to 5 | Ready to upload in `docs/screenshots/store/`, in this order: `1-popup.png` (recording), `2-live-panel.png`, `3-session-log.png`, `4-audit-preview.png`, `5-report.png`. All are 1280×800 24-bit PNGs without alpha, checked by `tests/storeshots.test.ts`. To refresh them after a UI change, run `npm run build && npm run screenshots`. They come from the local test shop with placeholder IDs, never a real customer's site. |
 | Small promo tile | 440×280 PNG | Required by the dashboard |
 | Marquee promo tile | 1400×560 PNG | Optional |
