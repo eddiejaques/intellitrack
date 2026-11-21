@@ -110,6 +110,8 @@ export interface SessionMeta {
   unattributed?: { count: number; initiators: string[] };
   /** vendors this session is judged on (default: GA4). Every vendor is still captured; this filters views and audits. */
   vendors?: string[];
+  /** X18: which GA4 property (measurement ID) the audit covers, when the session has more than one. */
+  ga4_property?: string;
   /** parsed events per vendor, for all vendors seen */
   vendor_counts?: Record<string, number>;
   /** where the recording started: used to group sessions by site in the history */
@@ -139,6 +141,7 @@ export type Message =
   | { type: "getSession"; sessionId: string }
   | { type: "listSessions" }
   | { type: "setVendors"; vendors: string[]; sessionId?: string; asDefault?: boolean }
+  | { type: "setGa4Property"; property: string; sessionId: string }
   | { type: "deleteSession"; sessionId: string }
   | { type: "getState" }
   | { type: "getEvents"; sessionId: string }

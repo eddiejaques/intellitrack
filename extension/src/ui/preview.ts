@@ -2,8 +2,8 @@ import { buildPayload, findRawPii } from "../minimize";
 import { loadConfig, validateConfig } from "../llm/config";
 import { sessionPlan } from "../planner/plan";
 import { fmtDuration, fmtWhen, guardWorker, pageUrl, resolveSession, siteLabel } from "./session";
-import { saveVendors, vendorPicker } from "./vendorPicker";
-import { sessionVendors, silentGa4 } from "../shared/vendors";
+import { saveGa4Property, saveVendors, propertyPicker, vendorPicker } from "./vendorPicker";
+import { ga4Properties, sessionGa4Property, sessionVendors, silentGa4 } from "../shared/vendors";
 import type { StoredEvent } from "../background/store";
 import type { AuditReport, JourneyPlan, Message, Payload, RequestRow, SessionMeta } from "../shared/types";
 
@@ -45,7 +45,23 @@ function render(plan?: JourneyPlan) {
     session = { ...session!, vendors: next };
     render(plan);
   }));
-  payload = buildPayload({ session, events: chosen, plan });
+
+  // X18: when more than one GA4 property fired, audit exactly one at a time so findings never
+  // get attributed to the wrong property.
+  const properties = ga4Properties(chosen);
+  const activeProperty = sessionGa4Property(session, properties);
+  const wrap = $("ga4-property-wrap");
+  wrap.hidden = properties.length < 2;
+  if (properties.length >= 2 && activeProperty) {
+    $("ga4-property").replaceChildren(propertyPicker(properties, activeProperty, async (next) => {
+      await saveGa4Property(next, session!.id);
+      session = { ...session!, ga4_property: next };
+      render(plan);
+    }));
+  }
+  const scoped = activeProperty ? chosen.filter((e) => e.vendor !== "ga4" || e.property === activeProperty) : chosen;
+
+  payload = buildPayload({ session, events: scoped, plan });
   $("fcount").textContent = `· ${payload.rule_findings.length}`;
   $("findings").replaceChildren(
     ...(payload.rule_findings.length

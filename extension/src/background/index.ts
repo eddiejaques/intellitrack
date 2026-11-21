@@ -143,6 +143,15 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
         }
         return list;
       }
+      case "setGa4Property": {
+        const cur = await loadSession();
+        if (cur?.id === msg.sessionId) await updateSession((s) => { s.ga4_property = msg.property; });
+        else {
+          const old = await getSession(msg.sessionId);
+          if (old) await putSession({ ...old, ga4_property: msg.property });
+        }
+        return msg.property;
+      }
       case "hello":
         return { build: __BUILD_ID__ };
       case "start": {

@@ -23,3 +23,19 @@ export function silentGa4(tagLoads: Record<string, number> | undefined, events: 
   const seen = new Set(events.filter((e) => e.vendor === "ga4").map((e) => (e.property ?? "").toUpperCase()));
   return Object.keys(tagLoads ?? {}).filter((id) => id.startsWith("G-") && !seen.has(id));
 }
+
+/** X18: distinct GA4 properties (measurement IDs) seen in a session's events, in first-seen order. */
+export function ga4Properties(events: { vendor: string; property?: string; t?: number }[]): string[] {
+  const ga4 = events.filter((e) => e.vendor === "ga4" && e.property).sort((a, b) => (a.t ?? 0) - (b.t ?? 0));
+  return [...new Set(ga4.map((e) => e.property!))];
+}
+
+/**
+ * X18: when a session has more than one GA4 property, the audit covers exactly one at a time (not a
+ * mix of properties, and not all of them at once) so findings aren't attributed to the wrong property.
+ * Defaults to the first property seen. Sessions with 0 or 1 property are unaffected (no filtering).
+ */
+export function sessionGa4Property(s: Pick<SessionMeta, "ga4_property">, properties: string[]): string | undefined {
+  if (properties.length < 2) return undefined;
+  return s.ga4_property && properties.includes(s.ga4_property) ? s.ga4_property : properties[0];
+}
