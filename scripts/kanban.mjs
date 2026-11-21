@@ -3,12 +3,20 @@
 //
 //   npm run kanban                          summary: counts per column, Blocked and Review cards, the Ready queue
 //   npm run kanban -- next                  what the dev agent should do: ID<TAB>title<TAB>#issue<TAB>action, or nothing
-//                                           action: resume | deploy | answer | feedback | start (see nextCard)
+//                                           action: resume | deploy | answer | feedback | start | refine (see nextCard)
 //   npm run kanban -- show B2               the card: fields, body and every comment, oldest first
 //   npm run kanban -- set B2 ready          move a card (backlog|ready|in_progress|blocked|review|done)
 //   npm run kanban -- set B2 review --branch b2-datalayer [--note "…"] [--prio n] [--force]
 //   npm run kanban -- new "Title" --type bug --size S [--body-file f.md] [--ready]   new ad-hoc card X<n>
-//   npm run kanban -- comment B2 "text" [--kind note|progress|answer|feedback|blocked|change|review|approve] [--as pm|agent] [--body-file f.md]
+//   npm run kanban -- comment B2 "text" [--kind note|progress|answer|feedback|blocked|change|review|approve|refine|clarify] [--as pm|agent] [--body-file f.md]
+//   npm run kanban -- refine B9 --body-file spec.md --summary-file note.md
+//                                           agent only: rewrite a Backlog card's spec (short: ≤ 6 criteria, ≤ 1500 chars; the old
+//                                           body is kept, quoted, under "## Original request"), post a [agent · refine] comment,
+//                                           and put the card back in Backlog if it was Blocked on a clarify question
+//   npm run kanban -- clarify B9 --body-file question.md
+//                                           agent only: the scope is unclear, so post a [agent · clarify] question and move the
+//                                           Backlog card to Blocked (body untouched); the PM's answer sends it back to refine
+//                                           (refused unless the card is in Backlog without a branch)
 //   npm run kanban -- check B2 [n] [--undo]  list the acceptance criteria, or tick criterion n in the issue body
 //   npm run kanban -- wait [--timeout 1800] [--every 60]   block until there's a card to work on
 //                                           (exit 0 and print it, 3 on timeout, 4 on a stop request)
@@ -21,7 +29,8 @@
 // (or ship it / LGTM / approved) means merge the PR; anything else is feedback. On a Blocked card,
 // any comment is the answer. Only comments from the board owner's account count.
 //
-// Rules the CLI enforces: Ready needs acceptance criteria (--force overrides); WIP limit 1;
+// Rules the CLI enforces: Ready needs acceptance criteria (--force overrides); only the PM moves a card
+// to Ready, and the agent can't start a Backlog card; WIP limit 1;
 // Done only when the card's PR ("Closes #n") is merged into main, never by hand.
 // Comments are by "agent" when run from a worktree other than the main checkout, by "pm" otherwise.
 import { execFileSync } from "node:child_process";
@@ -29,7 +38,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG, comment, createCardIssue, editBody, findCard, issueComments, listCards, project, reopenIssue, setField } from "./gh-board.mjs";
 import { syncBranch } from "./git-sync.mjs";
-import { STATUSES, STATUS_NAMES, checkMove, criteria, formatComment, hasCriteria, newCardBody, nextCard, parseComment, sortCards, tickCriterion } from "./kanban-lib.mjs";
+import { STATUSES, STATUS_NAMES, checkMove, criteria, formatComment, hasCriteria, newCardBody, nextCard, parseComment, refinedBody, sortCards, tickCriterion } from "./kanban-lib.mjs";
 
 function mainCheckout() {
   if (process.env.KANBAN_DIR) return process.env.KANBAN_DIR;
@@ -42,7 +51,7 @@ function mainCheckout() {
 const DIR = mainCheckout();
 const STOP = join(DIR, ".dev-stop");
 const [cmd, ...args] = process.argv.slice(2);
-const VALUE_FLAGS = new Set(["--branch", "--note", "--prio", "--type", "--size", "--body-file", "--kind", "--as", "--timeout", "--every"]);
+const VALUE_FLAGS = new Set(["--branch", "--note", "--prio", "--type", "--size", "--body-file", "--kind", "--as", "--timeout", "--every", "--summary-file"]);
 const flag = (name, d) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : d; };
 const positional = () => args.filter((a, i) => !a.startsWith("--") && !VALUE_FLAGS.has(args[i - 1]));
 const die = (msg, code = 2) => { console.error(msg); process.exit(code); };
@@ -79,6 +88,8 @@ try {
         console.log(`  ${c.id.padEnd(5)} #${String(c.number).padEnd(4)} ${c.title.slice(0, 80)}${c.branch ? `  [${c.branch}]` : ""}${pr ? `  PR #${pr.number}${pr.merged ? " merged" : ""}` : ""}${s === "ready" && !c.hasCriteria ? "  ⚠ no acceptance criteria" : ""}${c.pending ? `  ← new comment: ${c.pending.action}` : ""}`);
       }
     }
+    const toRefine = cards.filter((c) => c.refine);
+    if (toRefine.length) console.log(`\nTo refine (agent, spec only): ${toRefine.slice(0, 5).map((c) => c.id).join(", ")}${toRefine.length > 5 ? ` and ${toRefine.length - 5} more` : ""}`);
     if (existsSync(STOP)) console.log("\nstop requested: the dev agent stops after its current card (npm run kanban -- go to clear)");
   } else if (cmd === "dir") console.log(DIR);
   else if (cmd === "stop") {
@@ -110,6 +121,7 @@ try {
     console.log(`Status: ${STATUS_NAMES[c.status]} · Type: ${c.type} · Size: ${c.size} · Prio: ${c.prio}${c.branch ? ` · Branch: ${c.branch}` : ""}`);
     for (const p of c.prs) console.log(`PR #${p.number} ${p.merged ? "merged" : p.state.toLowerCase()} ${p.url}`);
     if (c.pending) console.log(`Signal: ${c.pending.action} (from the newest owner comments since the agent's last comment)`);
+    else if (c.refine) console.log("Signal: refine (draft a short spec only, or ask a clarify question; no branch or code until the PM moves it to Ready)");
     console.log("\n" + c.body.trim());
     const comments = issueComments(c.number);
     if (comments.length) {
@@ -134,7 +146,7 @@ try {
     if (!id || !STATUSES.includes(status)) die(`usage: set <ID> <${STATUSES.join("|")}> [--branch name] [--note text] [--prio n] [--force]`);
     const cards = listCards();
     const c = findCard(id, cards);
-    const err = checkMove(c, status, cards, { force: args.includes("--force") });
+    const err = checkMove(c, status, cards, { force: args.includes("--force"), by: whoAmI() });
     if (err) die(err);
     if (c.status !== status) setField(c.itemId, "Status", status);
     if (status !== "done" && c.state === "CLOSED") reopenIssue(c.number);
@@ -156,6 +168,27 @@ try {
     const r = createCardIssue({ title: `${id}: ${title}`, body, labels: [`type:${flag("type", "feature")}`], status, prio: Number(flag("prio", 0)), size });
     console.log(`${id}\t#${r.number}\t${r.url}\t${STATUS_NAMES[status]}`);
     if (ready && status !== "ready") console.error(`${id} stays in Backlog: add acceptance criteria ("- [ ] …") first`);
+  } else if (cmd === "refine") {
+    const [id] = positional();
+    if (!id || !flag("body-file") || !flag("summary-file")) die("usage: refine <ID> --body-file spec.md --summary-file note.md");
+    const c = findCard(id);
+    if (c.branch) die(`${c.id} has a branch (${c.branch}): leave the body alone and post a comment instead`);
+    if (c.status !== "backlog" && !(c.status === "blocked" && c.refine)) die(`${c.id} is ${STATUS_NAMES[c.status]}: only Backlog cards (or Blocked ones whose clarify question was answered) are refined`);
+    let body;
+    try { body = refinedBody(c.body, readFileSync(flag("body-file"), "utf8")); } catch (e) { die(e.message); }
+    editBody(c.number, body);
+    comment(c.number, formatComment("agent", "refine", readFileSync(flag("summary-file"), "utf8")));
+    if (c.status !== "backlog") setField(c.itemId, "Status", "backlog");
+    console.log(`${c.id}: spec refined on #${c.number}; it stays in Backlog until the PM moves it to Ready`);
+  } else if (cmd === "clarify") {
+    const [id] = positional();
+    if (!id || !flag("body-file")) die("usage: clarify <ID> --body-file question.md");
+    const c = findCard(id);
+    if (c.branch) die(`${c.id} has a branch (${c.branch}): block it the normal way (comment --kind blocked, set blocked)`);
+    if (c.status !== "backlog" && !(c.status === "blocked" && c.refine)) die(`${c.id} is ${STATUS_NAMES[c.status]}: clarify is for Backlog cards being refined`);
+    comment(c.number, formatComment("agent", "clarify", readFileSync(flag("body-file"), "utf8")));
+    if (c.status !== "blocked") setField(c.itemId, "Status", "blocked");
+    console.log(`${c.id}: question posted on #${c.number}; Blocked until the PM answers`);
   } else if (cmd === "check") {
     const [id, n] = positional();
     if (!id) die("usage: check <ID> [n] [--undo]");
@@ -178,7 +211,7 @@ try {
   } else if (cmd === "comment") {
     const [id, text] = positional();
     const body = flag("body-file") ? readFileSync(flag("body-file"), "utf8") : text;
-    if (!id || !body) die('usage: comment <ID> "text" [--kind note|progress|answer|feedback|blocked|change|review|approve] [--as pm|agent] [--body-file f.md]');
+    if (!id || !body) die('usage: comment <ID> "text" [--kind note|progress|answer|feedback|blocked|change|review|approve|refine|clarify] [--as pm|agent] [--body-file f.md]');
     const c = findCard(id);
     comment(c.number, formatComment(whoAmI(), flag("kind", "note"), body));
     console.log(`${c.id}: comment added on #${c.number}`);

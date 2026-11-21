@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error plain .mjs module without types
 import * as lib from "../scripts/kanban-lib.mjs";
 
-const { checkMove, criteria, formatComment, hasCriteria, isApproval, itemToCard, legacyCards, newCardBody, nextCard, normEntry, parseComment, parseTaskFile, parseTitle, pendingAction, tickCriterion } = lib;
+const { checkMove, criteria, needsRefine, refinedBody, formatComment, hasCriteria, isApproval, itemToCard, legacyCards, newCardBody, nextCard, normEntry, parseComment, parseTaskFile, parseTitle, pendingAction, tickCriterion } = lib;
 
 /** A project item as the GraphQL query in gh-board.mjs returns it. */
 function item(title: string, f: { Status?: string; Prio?: number; Size?: string; Branch?: string } = {}, extra: Record<string, unknown> = {}) {
@@ -65,6 +65,15 @@ describe("moving cards", () => {
     expect(checkMove(card({}), "in_progress", others)).toMatch(/B2 is already in progress/);
     expect(checkMove(card({ id: "B2", status: "in_progress" }), "in_progress", others)).toBeUndefined();
     expect(checkMove(card({}), "doing")).toMatch(/status must be one of/);
+  });
+
+  it("only the PM moves a card to Ready, and the agent can't start a Backlog card", () => {
+    expect(checkMove(card({}), "ready", [], { by: "agent" })).toMatch(/only the PM moves a card to Ready/);
+    expect(checkMove(card({}), "ready", [], { by: "agent", force: true })).toMatch(/only the PM/);
+    expect(checkMove(card({}), "ready", [], { by: "pm" })).toBeUndefined();
+    expect(checkMove(card({}), "in_progress", [], { by: "agent" })).toMatch(/move it to Ready before any work starts/);
+    expect(checkMove(card({ status: "ready" }), "in_progress", [], { by: "agent" })).toBeUndefined();
+    expect(checkMove(card({ status: "blocked" }), "in_progress", [], { by: "agent" })).toBeUndefined();
   });
 
   it("criteria: placeholders and other sections don't count", () => {
@@ -163,6 +172,82 @@ describe("signals from the PM's comments", () => {
     expect(nextCard([mk("B3", "ready", 0), mk("B2", "review", 5, "feedback")])).toMatchObject({ id: "B2", action: "feedback" });
     expect(nextCard([mk("B3", "ready", 0), mk("B2", "review", 5)])).toMatchObject({ id: "B3", action: "start" });
     expect(nextCard([mk("B1", "review", 4, "deploy"), mk("B4", "in_progress", 7)])).toMatchObject({ id: "B4", action: "resume" });
+  });
+
+  it("refine: Backlog cards the agent hasn't refined, or the PM commented on since", () => {
+    const refined = cm(OWNER, "**[agent · refine]**\n\nDrafted the criteria", 1);
+    const progress = cm(OWNER, "**[agent · progress]**\n\nnote", 1);
+    const bl = (activity: unknown[], o: Record<string, unknown> = {}) => ({ ...card("backlog", activity), type: "feature", state: "OPEN", ...o });
+    expect(needsRefine(bl([]), OWNER)).toBe(true);
+    expect(needsRefine(bl([progress]), OWNER)).toBe(true); // an agent comment that isn't a refinement
+    expect(needsRefine(bl([refined]), OWNER)).toBe(false);
+    expect(needsRefine(bl([refined, cm(OWNER, "also cover forms", 2)]), OWNER)).toBe(true);
+    expect(needsRefine(bl([refined, cm("someone-else", "do it", 2)]), OWNER)).toBe(false);
+    expect(needsRefine(bl([], { branch: "b9-x" }), OWNER)).toBe(false);
+    expect(needsRefine(bl([], { type: "triggered" }), OWNER)).toBe(false);
+    expect(needsRefine(bl([], { state: "CLOSED" }), OWNER)).toBe(false);
+    expect(needsRefine({ ...bl([]), status: "ready" }, OWNER)).toBe(false);
+    expect(needsRefine(bl([])), "no owner").toBe(false);
+  });
+
+  it("clarify: an unclear Backlog card waits in Blocked, and the answer means refine, not build", () => {
+    const ask = cm(OWNER, "**[agent · clarify]**\n\nNeeds clarification: which page?", 1);
+    const answer = cm(OWNER, "the popup", 2);
+    const blocked = (activity: unknown[], o: Record<string, unknown> = {}) => ({ ...card("blocked", activity), type: "feature", state: "OPEN", ...o });
+    expect(needsRefine(blocked([ask]), OWNER)).toBe(false); // still waiting for the PM
+    expect(needsRefine(blocked([ask, answer]), OWNER)).toBe(true);
+    expect(pendingAction(blocked([ask, answer]), OWNER)).toBeUndefined(); // not "answer": no branch, no code
+    expect(needsRefine({ ...card("backlog", [ask]), type: "feature", state: "OPEN" }, OWNER)).toBe(false); // the PM dragged it back, no answer yet
+    // an ordinary blocker on a work card is still an answer
+    const blockedWork = cm(OWNER, "**[agent · blocked]**\n\nneed a key", 1);
+    expect(pendingAction(blocked([blockedWork, answer], { branch: "b9-x" }), OWNER)?.action).toBe("answer");
+    expect(needsRefine(blocked([blockedWork, answer]), OWNER)).toBe(false);
+  });
+
+  it("next: answered clarify questions are refined before untouched Backlog cards", () => {
+    const mk = (id: string, status: string, prio: number) => ({ id, status, prio, refine: true });
+    expect(nextCard([mk("B1", "backlog", 0), mk("B9", "blocked", 9)])).toMatchObject({ id: "B9", action: "refine" });
+  });
+
+  it("next: refine comes last, after every Ready card", () => {
+    const mk = (id: string, status: string, prio: number, o: Record<string, unknown> = {}) => ({ id, status, prio, ...o });
+    expect(nextCard([mk("B9", "backlog", 0, { refine: true }), mk("B3", "ready", 6)])).toMatchObject({ id: "B3", action: "start" });
+    expect(nextCard([mk("B9", "backlog", 4, { refine: true }), mk("B8", "backlog", 2, { refine: true }), mk("B7", "backlog", 0)])).toMatchObject({ id: "B8", action: "refine" });
+    expect(nextCard([mk("B9", "backlog", 0, { refine: true }), mk("B2", "review", 5, { pending: { action: "feedback" } })])).toMatchObject({ id: "B2", action: "feedback" });
+  });
+
+  it("refinedBody keeps the original quoted, once, and only the new criteria count", () => {
+    const spec = "## Goal\nBetter.\n\n## Acceptance criteria\n- [ ] Badge is red\n- [ ] Checks pass\n\n## Notes\n- extension/x.ts\n";
+    const migrated = "Depends on: B1\n\n## Goal\nOld why\n\n## Acceptance criteria\n- [ ] _To be written before this card is Ready._\n";
+    const once = refinedBody(migrated, spec);
+    expect(criteria(once).map((c: { text: string }) => c.text)).toEqual(["Badge is red", "Checks pass"]);
+    expect(once).toContain("## Original request\n> Depends on: B1\n>\n> ## Goal");
+    const withReal = refinedBody("## Acceptance criteria\n- [ ] Old real one\n", spec);
+    expect(criteria(withReal)).toHaveLength(2);
+    expect(withReal).toContain("> - [ ] Old real one");
+    // second pass: the section is kept byte for byte, not nested, even if the agent pasted it in the spec
+    const twice = refinedBody(once, spec.replace("Badge is red", "Badge is amber") + "\n## Original request\nstale\n");
+    expect(twice.match(/## Original request/g)).toHaveLength(1);
+    expect(twice.slice(twice.indexOf("## Original request"))).toBe(once.slice(once.indexOf("## Original request")));
+    expect(criteria(twice)[0].text).toBe("Badge is amber");
+    // nothing worth keeping: empty body or the untouched skeleton
+    expect(refinedBody("", spec)).not.toContain("Original request");
+    expect(refinedBody(newCardBody(), spec)).not.toContain("Original request");
+    // too detailed: the spec is a brief
+    const many = "## Acceptance criteria\n" + Array.from({ length: 7 }, (_, i) => `- [ ] item ${i}`).join("\n") + "\n";
+    expect(() => refinedBody("", many)).toThrow(/at most 6 acceptance criteria/);
+    expect(() => refinedBody("", spec + "\n" + "x".repeat(1500))).toThrow(/keep it minimal/);
+    // unusable specs
+    expect(() => refinedBody("", "## Goal\nx\n")).toThrow(/exactly one/);
+    expect(() => refinedBody("", spec + "\n## Acceptance criteria\n- [ ] dup\n")).toThrow(/exactly one/);
+    expect(() => refinedBody("", spec.replace("- [ ] Checks pass", "- [ ] _todo_"))).toThrow(/placeholder/);
+  });
+
+  it("itemToCard flags a fresh Backlog card for refining", () => {
+    const fresh = item("X20: new idea");
+    expect(itemToCard(fresh, OWNER).refine).toBe(true);
+    const done = item("X20: new idea", {}, { comments: { nodes: [{ author: { login: OWNER }, body: "**[agent · refine]**\n\nok", createdAt: at(1) }] } });
+    expect(itemToCard(done, OWNER).refine).toBe(false);
   });
 
   it("reads issue and PR comments from the project item", () => {
