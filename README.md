@@ -6,6 +6,8 @@
 - **Private by design.** Personal data is redacted before anything leaves the browser, and nothing is sent until you have previewed the exact payload and confirmed.
 - **Works without an LLM too.** A built-in rule engine finds missing events, wrong values, duplicates, PII leaks, consent problems and failed hits on its own.
 
+![How IntelliTrack works, in four steps: install, start recording, browse the journey, review the audit](docs/store-graphics/usage-slide.png)
+
 | | |
 |---|---|
 | ![Popup](docs/screenshots/popup.png) | ![Sessions](docs/screenshots/sessions.png) |
