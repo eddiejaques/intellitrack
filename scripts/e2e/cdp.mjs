@@ -97,8 +97,10 @@ export async function launch({ dist = resolve("dist"), port = 9333 } = {}) {
   const goto = async (url, waitMs = 0) => { await send("Page.navigate", { url }, page.sid); if (waitMs) await sleep(waitMs); };
   const tabId = async (prefix) => (await ext(`chrome.tabs.query({}).then(t=>t.map(x=>({id:x.id,url:x.url})))`)).find((t) => (t.url ?? "").startsWith(prefix))?.id;
   const click = (selector) => evalIn(page.sid, `document.querySelector(${JSON.stringify(selector)}).click()`);
-  const screenshot = async (file, width, height, extPage) => {
+  const screenshot = async (file, width, height, extPage, theme) => {
     // extPage: an extension page (popup.html), or a full http(s)/data: URL
+    // theme: "light" | "dark" to emulate prefers-color-scheme (default: whatever the OS/browser uses)
+    if (theme) await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: theme }] }, es);
     if (extPage) { await send("Page.navigate", { url: /^(https?|data):/.test(extPage) ? extPage : `chrome-extension://${extId}/${extPage}` }, es); await sleep(1500); }
     await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, es);
     await sleep(500);

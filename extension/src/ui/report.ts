@@ -32,13 +32,23 @@ function ring(score: number): HTMLElement {
   return wrap;
 }
 
+/** X3: problem · severity · fix at a glance; evidence, the longer explanation and any rule review are
+ * behind a collapsed "Details" disclosure, opened only when there's something to show. */
 function findingEl(f: Finding): HTMLElement {
+  const hasDetails = !!f.detail || f.evidence.length > 0 || !!f.review;
+  const details = hasDetails
+    ? h("details", "disclosure", h("summary", "", "Details"),
+        f.detail ? h("div", "", f.detail) : h("span"),
+        f.evidence.length ? h("div", "f-ev", ...f.evidence.map((e) => chip(e, "mono"))) : h("span"),
+        f.review ? h("div", "f-review", `LLM review · ${f.review.verdict}: ${f.review.explanation}`) : h("span"))
+    : h("span");
   return h("article", `finding ${f.severity}`,
-    h("div", "f-head", h("span", `badge ${f.source === "llm" ? "llm" : ""}`.trim(), f.source === "llm" ? "LLM" : "rule"), h("span", "f-title", f.title)),
-    h("div", "", f.detail),
+    h("div", "f-head",
+      h("span", `badge ${f.severity}`, f.severity),
+      h("span", `badge ${f.source === "llm" ? "llm" : ""}`.trim(), f.source === "llm" ? "LLM" : "rule"),
+      h("span", "f-title", f.title)),
     h("div", "f-fix", h("b", "", "Fix: "), f.recommendation),
-    f.evidence.length ? h("div", "f-ev", ...f.evidence.map((e) => chip(e, "mono"))) : h("span"),
-    f.review ? h("div", "f-review", `LLM review · ${f.review.verdict}: ${f.review.explanation}`) : h("span"));
+    details);
 }
 
 function inconclusiveView(r: AuditReport, sid: string): HTMLElement[] {
@@ -104,6 +114,11 @@ function render(r: AuditReport) {
 
   const body = h("section", "", h("h2", "", `Findings · ${r.findings.length}`));
   if (!r.findings.length) body.append(h("div", "note ok", "No findings. Tracking matches the plan."));
+  // X3: counts by severity above the list, so the whole audit reads at a glance.
+  const sevCounts = ["critical", "high", "medium", "low", "info"]
+    .map((sev) => ({ sev, n: r.findings.filter((f) => f.severity === sev).length }))
+    .filter((c) => c.n > 0);
+  if (sevCounts.length) body.append(h("div", "row wrap sev-summary", ...sevCounts.map((c) => chip(`${c.n} ${c.sev}`, c.sev))));
   // X2: consent findings are a legal risk, not hygiene, so they always lead the list in their own
   // group, whatever their severity relative to everything else.
   const consentFindings = r.findings.filter((f) => f.category === "consent");
