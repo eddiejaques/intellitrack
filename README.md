@@ -18,6 +18,7 @@
 | **Google Analytics 4**, including server-side GTM and first-party endpoints | supported (default) |
 | **Google Ads** conversions and enhanced conversions, with GA4-vs-Ads cross-checks | supported (opt-in) |
 | Everything else (Meta, TikTok, Bing, Criteo, Adobe, Braze, Segment, ...) | captured and shown raw as **not parsed**; parsers are on the [backlog](https://github.com/users/eddiejaques/projects/1) |
+| **`dataLayer` pushes** (GTM / gtag.js, including renamed layers) | recorded next to the hits; each pushed GA4 event is marked **sent** or **not sent** for its page load |
 
 Rules cover: missing events and parameters per journey step, `value` vs. items total, missing `transaction_id`/currency, duplicate conversions, double-fired events, plaintext personal data, consent signals, `client_id` changes, failed or blocked hits, and GA4/Ads mismatches.
 
@@ -63,12 +64,13 @@ More detail for each of these is in **[docs/workflows.md](docs/workflows.md)**:
 The full privacy policy is at **https://eddiejaques.github.io/intellitrack/privacy.html** (source: `site/privacy.html`).
 
 - Recording covers **the tab where you pressed Start and tabs it opens** (a product opened in a new tab, a checkout pop-up). Unrelated tabs are never recorded, and it is never always-on.
+- To record `dataLayer` pushes, IntelliTrack adds a small observer to the pages of the recorded tabs only, while recording. It wraps `dataLayer.push` without changing what it returns. Pushed payloads are redacted (emails, phones, hashes) before they are stored.
 - Sessions live in your browser (IndexedDB) until you delete them. There is no telemetry.
 - **Page context while recording**: each recorded page's *structure* is read in your browser to decide its page type: schema.org types, og:type, form field *types*, whether there's a price, an add-to-cart button, an article or a password field, and which consent banner and platform are loaded. No form values, input names, page text, URL queries or cookies. Only the page type, the consent banner and the platform are kept, by path. The audit payload carries a `site` block (type, reason, tag IDs, consent banner, platform) and a `page_type` per page.
 - **Journey planning** sends only the page's *structure* (title, headings, nav labels, form field *types*, schema.org types). No form values, no URL query. You choose per site: *Always*, *Ask each time* (you see the exact JSON first) or *Never*.
 - **The audit** sends a minimized, redacted payload that you preview and confirm: emails, phone numbers and hashes become shape-preserving placeholders (`[email:plaintext]`, `[sha256:64hex]`), URL queries are dropped, IDs in paths become `:id`. If the payload still looks like it contains personal data, sending is blocked.
 - **Your API key is stored unencrypted** in `chrome.storage.local`. Use a dedicated key with a spending cap.
-- Permissions: `webRequest` + all-sites host access (to see tag requests, including first-party server-side endpoints), `storage`, `scripting`/`activeTab` (page structure for planning), `sidePanel`, and `webNavigation` (to follow tabs that the recorded tab opens, such as a product opened in a new tab).
+- Permissions: `webRequest` + all-sites host access (to see tag requests, including first-party server-side endpoints), `storage`, `scripting`/`activeTab` (page structure for planning, and the `dataLayer` observer in recorded tabs), `sidePanel`, and `webNavigation` (to follow tabs that the recorded tab opens, such as a product opened in a new tab).
 
 ## Develop
 

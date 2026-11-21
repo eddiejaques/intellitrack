@@ -1,12 +1,15 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { AuditReport, NormalizedEvent, RequestRow, SessionMeta } from "../shared/types";
+import type { DataLayerRow } from "../shared/datalayer";
 
-export type StoredEvent = NormalizedEvent & { sessionId: string; requestId: string; key: string };
+/** `documentId`/`tabId`: the page load and tab the hit came from, for matching dataLayer pushes */
+export type StoredEvent = NormalizedEvent & { sessionId: string; requestId: string; key: string; documentId?: string; tabId?: number };
 
 interface IntelliDB extends DBSchema {
   sessions: { key: string; value: SessionMeta };
   reports: { key: string; value: AuditReport };
   requests: { key: string; value: RequestRow; indexes: { by_session: string } };
+  datalayer: { key: string; value: DataLayerRow; indexes: { by_session: string } };
   events: {
     key: string;
     value: StoredEvent;
@@ -17,7 +20,7 @@ interface IntelliDB extends DBSchema {
 let dbp: Promise<IDBPDatabase<IntelliDB>> | undefined;
 
 export function getDb(name = "intellitrack"): Promise<IDBPDatabase<IntelliDB>> {
-  dbp ??= openDB<IntelliDB>(name, 3, {
+  dbp ??= openDB<IntelliDB>(name, 4, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         db.createObjectStore("sessions", { keyPath: "id" });
@@ -27,6 +30,7 @@ export function getDb(name = "intellitrack"): Promise<IDBPDatabase<IntelliDB>> {
       }
       if (oldVersion < 2) db.createObjectStore("reports", { keyPath: "session_id" });
       if (oldVersion < 3) db.createObjectStore("requests", { keyPath: "key" }).createIndex("by_session", "sessionId");
+      if (oldVersion < 4) db.createObjectStore("datalayer", { keyPath: "key" }).createIndex("by_session", "sessionId");
     },
   });
   return dbp;
@@ -98,14 +102,23 @@ export async function getSession(id: string): Promise<SessionMeta | undefined> {
 /** Everything that belongs to one session. */
 export async function deleteSession(id: string): Promise<void> {
   const db = await getDb();
-  const tx = db.transaction(["sessions", "events", "requests", "reports"], "readwrite");
+  const tx = db.transaction(["sessions", "events", "requests", "reports", "datalayer"], "readwrite");
   await tx.objectStore("sessions").delete(id);
   await tx.objectStore("reports").delete(id);
-  for (const store of ["events", "requests"] as const) {
+  for (const store of ["events", "requests", "datalayer"] as const) {
     const keys = await tx.objectStore(store).index("by_session").getAllKeys(id);
     await Promise.all(keys.map((k) => tx.objectStore(store).delete(k)));
   }
   await tx.done;
+}
+
+export async function putPush(r: DataLayerRow): Promise<void> {
+  await (await getDb()).put("datalayer", r);
+}
+
+export async function getPushes(sessionId: string): Promise<DataLayerRow[]> {
+  const all = await (await getDb()).getAllFromIndex("datalayer", "by_session", sessionId);
+  return all.sort((a, b) => a.t - b.t || a.id.localeCompare(b.id));
 }
 
 export async function listReports(): Promise<AuditReport[]> {

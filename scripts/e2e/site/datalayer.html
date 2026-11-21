@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Lead form | Test Shop</title>
+<!-- No tag library: everything pushed here is "pushed but never sent". The dataLayer is created late,
+     after the observer is in place, and one push carries an email that must be redacted. -->
+<script>
+setTimeout(() => {
+  window.dataLayer = window.dataLayer || [];
+  window.__ret1 = dataLayer.push({ event: 'never_sent_test', form_id: 'lead-1', user_email: 'jane.doe@example.com' });
+  function gtag(){ dataLayer.push(arguments); }
+  gtag('event', 'generate_lead', { value: 10, currency: 'EUR' });
+  window.__ret2 = dataLayer.push({ ecommerce: null });
+}, 300);
+</script></head><body><h1>Lead form</h1></body></html>

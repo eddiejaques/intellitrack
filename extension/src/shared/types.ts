@@ -10,6 +10,8 @@ export interface RawRequest {
   timeStamp: number;
   /** decoded request body (text), if any */
   body?: string;
+  /** Chrome's id for the page load (document) that made the request; absent for workers */
+  documentId?: string;
 }
 
 export interface NormalizedItem {
@@ -117,6 +119,9 @@ export interface SessionMeta {
   /** tag requests stored / of which no vendor parser recognised */
   request_count?: number;
   unrecognized_count?: number;
+  /** B2: dataLayer pushes stored for this session, and the next push id */
+  push_count?: number;
+  nextPush?: number;
 }
 
 export type Message =
@@ -138,6 +143,8 @@ export type Message =
   | { type: "getState" }
   | { type: "getEvents"; sessionId: string }
   | { type: "getRequests"; sessionId: string }
+  | { type: "getPushes"; sessionId: string }
+  | { type: "dataLayerPush"; push: unknown }
   | { type: "testConnection"; config: import("../llm/types").LLMConfig };
 
 // ---- T2: plan, findings, payload -------------------------------------------
