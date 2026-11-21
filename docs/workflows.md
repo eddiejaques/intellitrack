@@ -34,7 +34,7 @@ Skip this if you only want rule-based audits.
 7. Optionally press **Mark** on a step when you start it. This ties the events that follow to that step, which makes "missing at step X" findings precise.
 8. Press **Stop recording**.
 9. Open **Sessions** (popup → *Sessions*) and click **Run LLM audit** on your session.
-10. On the preview page, check the findings the rules already found, the journey coverage, the **privacy check** and the payload. Make sure *Vendors in this audit* is what you want.
+10. On the preview page, check the findings the rules already found, the journey coverage, the **privacy check** and the payload. Make sure *Vendors in this audit* is what you want. If the site sends to more than one GA4 property, a **GA4 property to audit** picker appears: pick one — the audit always covers exactly one property at a time, never a mix.
 11. **Confirm & send to my LLM.** The report opens: a score, a headline, journey coverage and findings grouped by severity. Each finding is tagged **rule** or **LLM**, cites the events it is about, and says how to fix it.
 
 How to read the report:
