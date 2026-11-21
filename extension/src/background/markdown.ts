@@ -40,8 +40,14 @@ export function reportToMarkdown(r: AuditReport): string {
 
   L.push(`## Findings (${r.findings.length})`, "");
   if (r.findings.length === 0) L.push("No findings.", "");
+  // X2: consent findings are a legal risk, not hygiene, so they lead the list regardless of severity.
+  const consentFindings = r.findings.filter((f) => f.category === "consent");
+  if (consentFindings.length) {
+    L.push(`### Consent (${consentFindings.length})`, "");
+    for (const f of consentFindings) L.push(...findingMd(f));
+  }
   for (const sev of SEVERITIES) {
-    const fs = r.findings.filter((f) => f.severity === sev);
+    const fs = r.findings.filter((f) => f.severity === sev && f.category !== "consent");
     if (!fs.length) continue;
     L.push(`### ${sev[0].toUpperCase()}${sev.slice(1)} (${fs.length})`, "");
     for (const f of fs) L.push(...findingMd(f));

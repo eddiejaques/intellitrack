@@ -104,8 +104,14 @@ function render(r: AuditReport) {
 
   const body = h("section", "", h("h2", "", `Findings · ${r.findings.length}`));
   if (!r.findings.length) body.append(h("div", "note ok", "No findings. Tracking matches the plan."));
+  // X2: consent findings are a legal risk, not hygiene, so they always lead the list in their own
+  // group, whatever their severity relative to everything else.
+  const consentFindings = r.findings.filter((f) => f.category === "consent");
+  if (consentFindings.length) {
+    body.append(h("div", "group-title", h("span", "badge consent", "consent"), h("span", "count", String(consentFindings.length))), h("div", "cards", ...consentFindings.map(findingEl)));
+  }
   for (const sev of ["critical", "high", "medium", "low", "info"]) {
-    const fs = r.findings.filter((f) => f.severity === sev);
+    const fs = r.findings.filter((f) => f.severity === sev && f.category !== "consent");
     if (!fs.length) continue;
     body.append(h("div", "group-title", h("span", `badge ${sev}`, sev), h("span", "count", String(fs.length))), h("div", "cards", ...fs.map(findingEl)));
   }

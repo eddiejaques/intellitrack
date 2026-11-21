@@ -2,6 +2,7 @@ import { vendors } from "../vendors";
 import { detectPii, type PiiKind } from "../minimize/redact";
 import { NOISE_EVENTS } from "../minimize/noise";
 import type { NormalizedEvent } from "../shared/types";
+import { consentIssues } from "../shared/consent";
 import { CONVERSION_EVENTS, ids, uniq, type RawFinding } from "./util";
 
 type Policy = "never" | "hashed_only" | "expected";
@@ -78,49 +79,13 @@ export function piiRule(events: NormalizedEvent[]): RawFinding[] {
   return out;
 }
 
-function gcsFlags(gcs: string): { ad: boolean; analytics: boolean } | undefined {
-  const m = /^G1([01])([01])/.exec(gcs);
-  return m ? { ad: m[1] === "1", analytics: m[2] === "1" } : undefined;
-}
-
+/** Thin wrapper: the actual checks are the pure `consentIssues`, shared with the live view (X2). */
 export function consentRule(events: NormalizedEvent[]): RawFinding[] {
-  const ga = events.filter((e) => e.vendor === "ga4");
-  if (ga.length === 0) return [];
-  const missing = ga.filter((e) => !e.consent.gcs && !e.consent.gcd);
-  if (missing.length === ga.length) {
-    return [{
-      severity: "high", vendor: "ga4", category: "consent",
-      title: "No consent signals on any GA4 hit",
-      detail: "None of the hits carry gcs/gcd. Google consent mode is not implemented, or consent state is not reaching the tag.",
-      evidence: ids(missing),
-      recommendation: "Implement Consent Mode v2 and send the default and updated consent state before any GA4 hit.",
-    }];
-  }
-  const out: RawFinding[] = [];
-  if (missing.length > 0) {
-    out.push({
-      severity: "medium", vendor: "ga4", category: "consent",
-      title: "Consent signals missing on some GA4 hits",
-      detail: `${missing.length} of ${ga.length} hits have no gcs/gcd while others do. Some tags may be firing outside consent mode.`,
-      evidence: ids(missing),
-      recommendation: "Make sure every Google tag is gated by the same consent configuration.",
-    });
-  }
-  // analytics_storage denied but a persistent user identifier is being sent
-  const deniedWithUid = ga.filter((e) => {
-    const f = e.consent.gcs ? gcsFlags(e.consent.gcs) : undefined;
-    return f && !f.analytics && !!e.user.user_id;
-  });
-  if (deniedWithUid.length) {
-    out.push({
-      severity: "high", vendor: "ga4", category: "consent",
-      title: "user_id sent while analytics consent is denied",
-      detail: `${deniedWithUid.length} hit(s) carry a user_id with analytics_storage denied.`,
-      evidence: ids(deniedWithUid),
-      recommendation: "Do not set user_id until analytics consent is granted.",
-    });
-  }
-  return out;
+  return consentIssues(events).map((i) => ({
+    severity: i.severity, vendor: "ga4", category: "consent",
+    title: i.title, detail: i.detail, recommendation: i.recommendation,
+    evidence: ids(i.events),
+  }));
 }
 
 export function identityRule(events: NormalizedEvent[]): RawFinding[] {

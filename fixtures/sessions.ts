@@ -93,7 +93,7 @@ export const sessionWith = (markers: SessionMeta["markers"]): Pick<SessionMeta, 
 /** A Google Ads conversion ping as the normalizer would emit it (synthetic, see googleAds.ts note). */
 export function adsConversion(t: number, params: NormalizedEvent["params"] = {}, over: Partial<NormalizedEvent> = {}): NormalizedEvent {
   return ev(t, "conversion", {
-    vendor: "google_ads", property: "AW-123456789", consent: {}, user: {},
+    vendor: "google_ads", property: "AW-123456789", consent: { gcs: "G111" }, user: {},
     page: { path: "/thanks", step: "S4" },
     params: { label: "AbCdEf_gh", value: 29.9, currency: "EUR", transaction_id: "T-1001", ...params },
     ...over,

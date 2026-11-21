@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8"><title>No consent | Test Shop</title>
+<!-- X2: a GA4 hit with no consent signals at all (no gtag, no gcs/gcd), fired immediately and
+     deterministically so the live consent warning can be checked without depending on real gtag.js
+     network timing. Uses the same fake server-side GA4 endpoint as cart.html's add_to_cart hit. -->
+<script>
+fetch('http://localhost:8123/ga/noconsent1?v=2&tid=G-NOCONSENT1&cid=55.66&en=view_item&cu=EUR&epn.value=10', { method: 'POST', keepalive: true }).catch(() => {});
+</script></head><body><h1>No consent</h1></body></html>

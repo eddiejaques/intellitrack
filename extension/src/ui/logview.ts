@@ -3,6 +3,7 @@ import type { Message, RequestRow, SessionMeta } from "../shared/types";
 import { fmtDuration, fmtWhen, guardWorker, resolveSession, siteLabel } from "./session";
 import { saveVendors, vendorPicker } from "./vendorPicker";
 import { selectedEventCount, sessionVendors, silentGa4, vendorLabel } from "../shared/vendors";
+import { consentIssues } from "../shared/consent";
 import { guessVendor } from "../vendors/tagHint";
 import { isGa4EventPush, pushLabel, sentStatus, type DataLayerRow } from "../shared/datalayer";
 
@@ -157,6 +158,18 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
     const unparsed = requests.filter((r) => r.vendor === "unrecognized").length;
     const un = session?.unattributed;
     const notes: HTMLElement[] = [];
+    // X2: consent problems are legal risk, so they're flagged live, first, as soon as detectable.
+    for (const issue of consentIssues(events)) {
+      notes.push(h("div", `note ${issue.severity === "high" ? "err" : "warn"}`,
+        h("div", "", `${issue.title}. ${issue.detail}`),
+        h("div", "row wrap", ...issue.events.slice(0, 8).map((e) => {
+          const b = h("button", "chip mono clickable", e.id) as HTMLButtonElement;
+          b.type = "button";
+          b.title = "Show this hit in the Events tab";
+          b.addEventListener("click", () => { tab = "events"; filter = e.id.toLowerCase(); search.value = e.id; paint(); });
+          return b;
+        }))));
+    }
     const silent = session ? silentGa4(session.tag_loads, events) : [];
     if (silent.length) {
       const gtm = Object.keys(session!.tag_loads ?? {}).filter((id) => id.startsWith("GTM-"));
@@ -212,7 +225,7 @@ export function mountLogView(root: HTMLElement, opts: LogViewOptions = {}) {
           : "No dataLayer pushes were recorded in this session."));
     } else {
       const sel = session ? sessionVendors(session) : [];
-      const rows = events.filter((e) => sel.includes(e.vendor) && match(e.event, e.vendor, e.property, e.page.path));
+      const rows = events.filter((e) => sel.includes(e.vendor) && match(e.event, e.vendor, e.property, e.page.path, e.id));
       body.replaceChildren(rows.length
         ? h("table", "", h("thead", "", h("tr", "", ...["Time", "Event", "Status"].map((t) => h("th", "", t)))), h("tbody", "", ...rows.flatMap(eventRow)))
         : empty(rec, events.length > 0));

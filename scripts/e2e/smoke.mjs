@@ -80,6 +80,16 @@ try {
   const verdict = await b.ext(`[...document.querySelectorAll("tr")].find((r) => r.textContent.includes("never_sent_test"))?.dataset.push ?? "missing row"`);
   const label = await b.ext(`[...document.querySelectorAll("tr")].find((r) => r.textContent.includes("never_sent_test"))?.lastElementChild.textContent ?? ""`);
   check(verdict === "not_sent" && label === "not sent", `session log shows never_sent_test as "not sent" (got ${verdict} / ${label})`);
+
+  // 1d. X2: a GA4 hit with no consent signals is flagged live, as soon as it's captured
+  await b.goto("http://localhost:8123/noconsent.html", 1500);
+  events = await b.msg({ type: "getEvents", sessionId: s1.id });
+  const noConsentHit = events.find((e) => e.event === "view_item" && e.property === "G-NOCONSENT1");
+  check(!!noConsentHit && !noConsentHit.consent.gcs && !noConsentHit.consent.gcd, "a GA4 hit with no consent signals is captured");
+  await b.extGoto(`viewer.html?session=${s1.id}`);
+  await sleep(300);
+  const consentNote = await b.ext(`[...document.querySelectorAll(".note")].map((n) => n.textContent).find((t) => t.includes("Consent"))`);
+  check(!!consentNote && consentNote.includes(noConsentHit?.id ?? "«no hit»"), `live consent warning names the hit (got ${JSON.stringify(consentNote)})`);
   await b.extGoto("options.html");
 
   // 1c. a tab that is not recorded never gets the observer, even while a recording runs
