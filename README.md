@@ -60,6 +60,8 @@ More detail for each of these is in **[docs/workflows.md](docs/workflows.md)**:
 
 ## Privacy
 
+The full privacy policy is at **https://eddiejaques.github.io/intellitrack/privacy.html** (source: `site/privacy.html`).
+
 - Recording covers **the tab where you pressed Start and tabs it opens** (a product opened in a new tab, a checkout pop-up). Unrelated tabs are never recorded, and it is never always-on.
 - Sessions live in your browser (IndexedDB) until you delete them. There is no telemetry.
 - **Page context while recording**: each recorded page's *structure* is read in your browser to decide its page type: schema.org types, og:type, form field *types*, whether there's a price, an add-to-cart button, an article or a password field, and which consent banner and platform are loaded. No form values, input names, page text, URL queries or cookies. Only the page type, the consent banner and the platform are kept, by path. The audit payload carries a `site` block (type, reason, tag IDs, consent banner, platform) and a `page_type` per page.
