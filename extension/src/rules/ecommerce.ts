@@ -1,5 +1,6 @@
 import type { NormalizedEvent } from "../shared/types";
 import { ids, num, type RawFinding } from "./util";
+import { COMMERCE_PAGES, type PageType } from "../shared/siteContext";
 
 export const ECOM_EVENTS = new Set([
   "view_item", "view_item_list", "select_item", "add_to_cart", "remove_from_cart", "view_cart",
@@ -21,9 +22,21 @@ const itemSum = (e: NormalizedEvent): number | undefined => {
   return sum;
 };
 
-export function ecommerceRules(events: NormalizedEvent[]): RawFinding[] {
+/**
+ * E-commerce parameter checks apply to e-commerce events wherever they fire, and (when page types are
+ * known) to any event on a product, listing, cart, checkout or confirmation page. A home or content
+ * page with only page_view / scroll / engagement events is never checked for items, value or currency.
+ */
+export function inEcommerceScope(e: NormalizedEvent, pageType?: (e: NormalizedEvent) => PageType | undefined): boolean {
+  if (e.vendor !== "ga4") return false;
+  if (ECOM_EVENTS.has(e.event)) return true;
+  const t = pageType?.(e);
+  return t !== undefined && COMMERCE_PAGES.has(t) && (e.params.value !== undefined || e.items.length > 0);
+}
+
+export function ecommerceRules(events: NormalizedEvent[], pageType?: (e: NormalizedEvent) => PageType | undefined): RawFinding[] {
   const out: RawFinding[] = [];
-  const ec = events.filter((e) => e.vendor === "ga4" && ECOM_EVENTS.has(e.event)).sort((a, b) => a.t - b.t);
+  const ec = events.filter((e) => inEcommerceScope(e, pageType)).sort((a, b) => a.t - b.t);
 
   // value ≈ Σ(price × quantity)
   const wrong: NormalizedEvent[] = [];
