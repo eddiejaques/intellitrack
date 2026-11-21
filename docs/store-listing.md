@@ -64,7 +64,7 @@ Certify all three statements:
 - I do not use or transfer user data for purposes unrelated to my item's single purpose.
 - I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** the dashboard requires one because the extension handles website content. Use the README's [Privacy section](../README.md#privacy), or a page made from it, until there is a site.
+**Privacy policy URL:** `https://eddiejaques.github.io/intellitrack/privacy.html`. The dashboard requires one because the extension handles website content. The page's source is [`site/privacy.html`](../site/privacy.html). `.github/workflows/pages.yml` publishes only the `site/` folder to GitHub Pages on every push to `main` that changes it. `tests/privacy.test.ts` fails if the page stops covering a data category or a manifest permission. When what the extension does with data changes, update the page in the same PR.
 
 ## Graphics needed
 
