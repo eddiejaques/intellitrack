@@ -68,11 +68,11 @@ Certify all three statements:
 
 ## Graphics needed
 
-The dashboard holds these. They aren't in the repo.
+Upload these in the dashboard. The icon, screenshots and small promo tile are in the repo; the marquee tile isn't made yet.
 
 | Asset | Size | Notes |
 |---|---|---|
 | Store icon | 128×128 PNG | `extension/static/icons/icon-128.png` |
 | Screenshots | 1280×800 (or 640×400) JPEG or 24-bit PNG (no alpha), 1 to 5 | Ready to upload in `docs/screenshots/store/`, in this order: `1-popup.png` (recording), `2-live-panel.png`, `3-session-log.png`, `4-audit-preview.png`, `5-report.png`. All are 1280×800 24-bit PNGs without alpha, checked by `tests/storeshots.test.ts`. To refresh them after a UI change, run `npm run build && npm run screenshots`. They come from the local test shop with placeholder IDs, never a real customer's site. |
-| Small promo tile | 440×280 PNG | Required by the dashboard |
+| Small promo tile | 440×280 JPEG or 24-bit PNG (no alpha) | Ready to upload: `docs/store-graphics/small-promo-tile.png`, a 24-bit PNG without alpha checked by `tests/promotile.test.ts`. To change the text or look, edit `scripts/promo-tile.mjs`, then run `npm run build && npm run promo-tile`. |
 | Marquee promo tile | 1400×560 PNG | Optional |
