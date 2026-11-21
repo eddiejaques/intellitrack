@@ -64,15 +64,15 @@ Certify all three statements:
 - I do not use or transfer user data for purposes unrelated to my item's single purpose.
 - I do not use or transfer user data to determine creditworthiness or for lending purposes.
 
-**Privacy policy URL:** the dashboard requires one because the extension handles website content. Use the README's [Privacy section](../README.md#privacy), or a page made from it, until there is a site.
+**Privacy policy URL:** `https://eddiejaques.github.io/intellitrack/privacy.html`. The dashboard requires one because the extension handles website content. The page's source is [`site/privacy.html`](../site/privacy.html). `.github/workflows/pages.yml` publishes only the `site/` folder to GitHub Pages on every push to `main` that changes it. `tests/privacy.test.ts` fails if the page stops covering a data category or a manifest permission. When what the extension does with data changes, update the page in the same PR.
 
 ## Graphics needed
 
-The dashboard holds these. They aren't in the repo.
+Upload these in the dashboard. The icon, screenshots and small promo tile are in the repo; the marquee tile isn't made yet.
 
 | Asset | Size | Notes |
 |---|---|---|
 | Store icon | 128×128 PNG | `extension/static/icons/icon-128.png` |
-| Screenshots | 1280×800 (or 640×400), 1 to 5 | Suggested: popup while recording, the live side panel, the session log's Tags tab, the audit preview, the report. `SHOT=<dir> npm run e2e` makes starting points (`docs/screenshots/`). Use placeholder sites and IDs, never a real customer's. |
-| Small promo tile | 440×280 PNG | Required by the dashboard |
+| Screenshots | 1280×800 (or 640×400) JPEG or 24-bit PNG (no alpha), 1 to 5 | Ready to upload in `docs/screenshots/store/`, in this order: `1-popup.png` (recording), `2-live-panel.png`, `3-session-log.png`, `4-audit-preview.png`, `5-report.png`. All are 1280×800 24-bit PNGs without alpha, checked by `tests/storeshots.test.ts`. To refresh them after a UI change, run `npm run build && npm run screenshots`. They come from the local test shop with placeholder IDs, never a real customer's site. |
+| Small promo tile | 440×280 JPEG or 24-bit PNG (no alpha) | Ready to upload: `docs/store-graphics/small-promo-tile.png`, a 24-bit PNG without alpha checked by `tests/promotile.test.ts`. To change the text or look, edit `scripts/promo-tile.mjs`, then run `npm run build && npm run promo-tile`. |
 | Marquee promo tile | 1400×560 PNG | Optional |

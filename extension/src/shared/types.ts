@@ -1,3 +1,4 @@
+import type { PageEntry, PageType, SiteInfo } from "./siteContext";
 export interface RawRequest {
   requestId: string;
   url: string;
@@ -113,6 +114,8 @@ export interface SessionMeta {
   vendor_counts?: Record<string, number>;
   /** where the recording started: used to group sessions by site in the history */
   site?: { origin: string; host: string; title?: string; url?: string };
+  /** X1: page context captured on each distinct page of the recorded tabs, by normalised path */
+  site_context?: { pages: PageEntry[] };
   /** tag requests stored / of which no vendor parser recognised */
   request_count?: number;
   unrecognized_count?: number;
@@ -241,7 +244,9 @@ export interface Payload {
     client_id_stable: boolean;
   };
   plan?: JourneyPlan;
-  pages: { id: string; path: string; title?: string }[];
+  /** X1: what the site is for, inferred from the captured pages (absent when none were captured) */
+  site?: SiteInfo;
+  pages: { id: string; path: string; title?: string; page_type?: PageType }[];
   events: MinimizedEvent[];
   stats: {
     raw_events: number;

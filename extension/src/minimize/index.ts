@@ -10,6 +10,7 @@ import type {
 } from "../shared/types";
 import { normalizePath, redactString, redactValue } from "./redact";
 import { runRules, type RuleOptions } from "../rules";
+import { inferSite, type PageType } from "../shared/siteContext";
 
 import { NOISE_EVENTS } from "./noise";
 export { NOISE_EVENTS };
@@ -133,7 +134,7 @@ export function minimize(
 }
 
 export interface BuildPayloadInput {
-  session: Pick<SessionMeta, "startedAt" | "endedAt" | "markers">;
+  session: Pick<SessionMeta, "startedAt" | "endedAt" | "markers"> & Partial<Pick<SessionMeta, "site_context" | "tag_loads">>;
   events: NormalizedEvent[];
   plan?: JourneyPlan;
   rules?: RuleOptions;
@@ -144,8 +145,14 @@ export interface BuildPayloadInput {
 export function buildPayload(input: BuildPayloadInput): Payload {
   // A step the user marked is "reached" even if it fired nothing - that is exactly a missing-event case.
   const markerIds = input.session.markers.map((m) => m.id);
+  // X1: pages captured while recording. Sessions without them (older ones) behave exactly as before.
+  const captured = input.session.site_context?.pages ?? [];
+  const pageTypes: Record<string, PageType> = {};
+  for (const p of captured) pageTypes[p.path] = p.page_type;
+  const site = captured.length ? inferSite(captured, input.events, input.session.tag_loads) : undefined;
   const ruled = runRules(input.events, {
     plan: input.plan,
+    ...(site ? { site: site.type, pageTypes } : {}),
     ...(markerIds.length ? { reachedSteps: markerIds } : {}),
     ...input.rules,
   });
@@ -172,7 +179,8 @@ export function buildPayload(input: BuildPayloadInput): Payload {
       client_id_stable: m.client_id_stable,
     },
     plan: input.plan,
-    pages: m.pages,
+    ...(site ? { site } : {}),
+    pages: site ? m.pages.map((p) => (pageTypes[p.path] ? { ...p, page_type: pageTypes[p.path] } : p)) : m.pages,
     events: m.events,
     stats: m.stats,
     rule_findings: sentFindings,
