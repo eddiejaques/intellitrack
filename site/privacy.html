@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IntelliTrack privacy policy</title>
+<meta name="description" content="What the IntelliTrack Chrome extension does with data: what it records, what stays in your browser, and what is sent to your own LLM.">
+<style>
+  :root { color-scheme: light dark; --bg: #fafaf9; --fg: #1f2337; --muted: #4a5070; --line: #e4e4ea; --accent: #4f46e5; --card: #ffffff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #14151c; --fg: #e8e9f1; --muted: #a4a8c0; --line: #2c2e3a; --accent: #8b85ff; --card: #1b1d26; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 48px 24px 72px; }
+  h1 { font-size: 34px; line-height: 1.2; margin: 0 0 6px; }
+  h2 { font-size: 22px; margin: 40px 0 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+  p, li { color: var(--fg); }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .summary { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin: 24px 0; }
+  .summary li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>IntelliTrack privacy policy</h1>
+<p class="muted">For the IntelliTrack Chrome extension. Last updated: 21 November 2026.</p>
+
+<div class="summary">
+<strong>In short</strong>
+<ul>
+  <li>IntelliTrack records nothing until you press <strong>Start</strong>, and then only the tab you started in and tabs it opens.</li>
+  <li>Everything it records stays in your browser. There is no IntelliTrack server, no account and no telemetry.</li>
+  <li>Data leaves your browser only if you set up your own LLM, and then it goes straight to that LLM provider, redacted, after you have seen it.</li>
+  <li>We do not sell or transfer your data to anyone.</li>
+</ul>
+</div>
+
+<h2 id="what">What IntelliTrack is</h2>
+<p>IntelliTrack records the marketing and analytics tags (such as Google Analytics 4 and Google Ads) that fire in a browser tab while you browse a site, and audits them against the journey you expect, with built-in rules and, if you choose, your own LLM.</p>
+
+<h2 id="recorded">What is recorded, and when</h2>
+<ul>
+  <li><strong>Only while you record.</strong> Recording starts when you press Start and ends when you press Stop. It is never always-on.</li>
+  <li><strong>Only the recorded tabs.</strong> The tab where you pressed Start, plus tabs it opens (for example a product opened in a new tab, or a checkout pop-up). Other tabs are never recorded.</li>
+  <li><strong>Tag requests.</strong> The analytics and marketing requests those tabs send (to Google Analytics, Google Ads and other tag endpoints), including the page URLs and parameters inside them. Requests are only observed, never blocked or changed.</li>
+  <li><strong>Data layer pushes</strong> on the recorded pages, so the audit can tell what a site pushed but never sent.</li>
+  <li><strong>Page structure.</strong> Of the recorded pages: the title, headings, navigation labels, form field <em>types</em>, schema.org types, and whether a price, an add-to-cart button, a consent banner or a shop platform is present. This decides the page type (home, product, cart, …) and helps plan the journey. IntelliTrack never reads form values, input names, cookies or passwords.</li>
+</ul>
+
+<h2 id="local">What stays in your browser</h2>
+<ul>
+  <li>Recorded sessions (tag requests, events, data layer pushes, page types, plans and reports) are stored in your browser's IndexedDB on your own computer.</li>
+  <li>The state of the current recording is kept in <code>chrome.storage.session</code>. Your settings, per-site choices and LLM settings are kept in <code>chrome.storage.local</code>.</li>
+  <li><strong>No telemetry.</strong> IntelliTrack sends no analytics, crash reports or usage data to us or anyone else. There is no IntelliTrack server.</li>
+</ul>
+
+<h2 id="llm">What is sent to your LLM, and only after you agree</h2>
+<p>IntelliTrack works without an LLM: the rules-only audit sends nothing anywhere. If you add your own LLM in Settings (Anthropic, OpenAI, Google Gemini or an OpenAI-compatible endpoint you choose), two things can be sent, directly from your browser to that provider:</p>
+<ul>
+  <li><strong>Journey planning:</strong> the page structure described above, according to the choice you make per site: <em>Always</em>, <em>Ask each time</em> (you see the exact data first) or <em>Never</em>.</li>
+  <li><strong>The audit:</strong> a minimized, redacted summary of the session, which you preview and confirm before it is sent. Emails, phone numbers and hashes become placeholders such as <code>[email:plaintext]</code>, URL queries are dropped, and IDs in page paths become <code>:id</code>. If the summary still looks like it contains personal data, sending is blocked.</li>
+</ul>
+<p>What that provider does with the data is governed by your agreement with them. IntelliTrack sends it nowhere else.</p>
+
+<h2 id="api-key">Your LLM API key</h2>
+<p>The API key you enter in Settings is stored <strong>unencrypted</strong> in <code>chrome.storage.local</code> on your computer, and sent only to the provider you configured, as its API requires. Use a dedicated key with a spending cap.</p>
+
+<h2 id="delete">How to delete your data</h2>
+<ul>
+  <li>Open <strong>Sessions</strong> in the popup and press <strong>Delete</strong> on a session to remove all of its data.</li>
+  <li>Remove your API key and LLM settings in <strong>Settings</strong>.</li>
+  <li>Uninstalling the extension deletes everything it stored.</li>
+</ul>
+<p>Sessions are kept until you delete them. They are not deleted automatically.</p>
+
+<h2 id="permissions">Permissions, and why</h2>
+<table>
+  <tr><th>Permission</th><th>Why</th></tr>
+  <tr><td><code>webRequest</code></td><td>To observe (never block or change) the tag requests of the recorded tabs.</td></tr>
+  <tr><td>Access to all sites</td><td>Tags are sent to many hosts, including first-party and server-side endpoints on the site's own domain, which can't be listed in advance. It also lets IntelliTrack read the recorded page's structure.</td></tr>
+  <tr><td><code>scripting</code></td><td>To read the structure of the recorded page and its data layer pushes.</td></tr>
+  <tr><td><code>activeTab</code></td><td>To act on the tab you are looking at when you press Start.</td></tr>
+  <tr><td><code>sidePanel</code></td><td>To show the live log next to the page while you record.</td></tr>
+  <tr><td><code>webNavigation</code></td><td>To follow tabs that the recorded tab opens, so the journey isn't lost.</td></tr>
+  <tr><td><code>storage</code></td><td>To keep the recording's state, your settings and your per-site choices.</td></tr>
+  <tr><td><code>unlimitedStorage</code></td><td>Recorded sessions can outgrow the browser's default local quota on long journeys.</td></tr>
+  <tr><td>Optional site access</td><td>Asked for only if you enter a custom LLM endpoint, so the browser can reach it.</td></tr>
+</table>
+
+<h2 id="sharing">No sale or transfer of data</h2>
+<p>We do not sell or transfer user data to third parties. Data goes only to the LLM provider you configure, at your request. It is not used for any purpose other than recording and auditing tags, and never to determine creditworthiness or for lending. IntelliTrack runs no ads.</p>
+
+<h2 id="changes">Changes to this policy</h2>
+<p>If what IntelliTrack does with data changes, this page is updated before the new version is released, and the date above changes.</p>
+
+<h2 id="contact">Contact</h2>
+<p>Questions or concerns: open an issue at <a href="https://github.com/eddiejaques/intellitrack/issues">github.com/eddiejaques/intellitrack/issues</a>.</p>
+</main>
+</body>
+</html>
