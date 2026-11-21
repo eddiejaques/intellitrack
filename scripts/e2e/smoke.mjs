@@ -58,6 +58,8 @@ try {
   check(names.includes("ga4:view_cart"), "gtag.js GA4 view_cart is captured", true);
   const rows = await b.msg({ type: "getRequests", sessionId: s1.id });
   check(rows.some((r) => r.vendor === "unrecognized"), "unparsed tag-like requests are logged");
+  const typeOf = (st, path) => st.site_context?.pages?.find((p) => p.path === path)?.page_type;
+  check(typeOf(state, "/cart.html") === "cart", `cart page is classified cart (got ${typeOf(state, "/cart.html")})`);
   await b.msg({ type: "stop" });
 
   // 2. a product opened in a new tab from the recorded tab is followed
@@ -68,6 +70,9 @@ try {
   await sleep(6000);
   events = await b.msg({ type: "getEvents", sessionId: s2.id });
   check(events.some((e) => e.event === "view_item"), "events from a followed new tab are captured", true);
+  state = await b.msg({ type: "getState" });
+  check(typeOf(state, "/home.html") === "home", `home page is classified home (got ${typeOf(state, "/home.html")})`);
+  check(typeOf(state, "/product.html") === "product", `product page in the followed tab is classified product (got ${typeOf(state, "/product.html")})`);
   await b.msg({ type: "stop" });
 
   // 2b. the popup and Settings show the version
@@ -76,6 +81,9 @@ try {
     const label = await b.ext(`document.getElementById("version")?.textContent ?? ""`);
     check(label === `IntelliTrack v${version}`, `${p.replace(".html", "")} shows "${label}"`);
   }
+  await b.extGoto("popup.html", 800);
+  const where = await b.ext(`document.getElementById("site-context")?.textContent ?? ""`);
+  check(where === "Shop · product page", `popup shows the site and page type ("${where}")`);
   await b.extGoto("options.html", 300);
 
   // 3. sessions stay separate
