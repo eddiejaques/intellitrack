@@ -17,6 +17,19 @@ export const defaultConfig = (provider: ProviderId = "anthropic"): LLMConfig => 
   plan_call_budget: { max_per_session: 5, min_interval_s: 30 },
 });
 
+/** X14: a "selection" for response length in Settings, on top of the raw `max_output_tokens` field. */
+export const RESPONSE_LENGTH_PRESETS = [
+  { id: "short", label: "Short (1,000 tokens)", tokens: 1000 },
+  { id: "medium", label: "Medium (4,000 tokens)", tokens: 4000 },
+  { id: "long", label: "Long (16,000 tokens)", tokens: 16000 },
+  { id: "very_long", label: "Very long (64,000 tokens, for long pages)", tokens: 64000 },
+] as const;
+
+/** Which preset a stored token value matches, or "custom" when it doesn't match any preset exactly. */
+export function responseLengthOf(maxOutputTokens: number): string {
+  return RESPONSE_LENGTH_PRESETS.find((p) => p.tokens === maxOutputTokens)?.id ?? "custom";
+}
+
 export function validateConfig(c: LLMConfig): string[] {
   const errs: string[] = [];
   let url: URL | undefined;
@@ -27,7 +40,7 @@ export function validateConfig(c: LLMConfig): string[] {
   }
   if (!c.model.trim()) errs.push("Model is required.");
   if (!c.api_key.trim() && c.provider !== "openai_compatible") errs.push("API key is required.");
-  if (!Number.isInteger(c.max_output_tokens) || c.max_output_tokens < 256 || c.max_output_tokens > 16000) errs.push("Max output tokens must be a whole number from 256 to 16000.");
+  if (!Number.isInteger(c.max_output_tokens) || c.max_output_tokens < 256 || c.max_output_tokens > 64000) errs.push("Max output tokens must be a whole number from 256 to 64000.");
   if (!(c.timeout_s >= 5 && c.timeout_s <= 600)) errs.push("Timeout must be 5-600 seconds.");
   const b = c.plan_call_budget;
   if (!Number.isInteger(b.max_per_session) || b.max_per_session < 1 || b.max_per_session > 50) errs.push("Plan calls per session must be 1-50.");

@@ -1,4 +1,4 @@
-import { PROVIDERS, defaultConfig, ensureHostPermission, loadConfig, saveConfig, validateConfig } from "../llm/config";
+import { PROVIDERS, RESPONSE_LENGTH_PRESETS, defaultConfig, ensureHostPermission, loadConfig, responseLengthOf, saveConfig, validateConfig } from "../llm/config";
 import type { LLMConfig, ProviderId } from "../llm/types";
 import type { Message } from "../shared/types";
 import type { TestResult } from "../llm";
@@ -21,6 +21,7 @@ function fill(c: LLMConfig) {
   input("model").value = c.model;
   input("api_key").value = c.api_key;
   input("max_output_tokens").value = String(c.max_output_tokens);
+  $<HTMLSelectElement>("response_length").value = responseLengthOf(c.max_output_tokens);
   input("timeout_s").value = String(c.timeout_s);
   input("max_per_session").value = String(c.plan_call_budget.max_per_session);
   input("min_interval_s").value = String(c.plan_call_budget.min_interval_s);
@@ -43,9 +44,23 @@ async function init() {
   $<HTMLSelectElement>("provider").replaceChildren(
     ...PROVIDERS.map((p) => Object.assign(document.createElement("option"), { value: p.id, textContent: p.label })),
   );
+  // X14: a response-length "selection" on top of the raw max_output_tokens field, for anyone who
+  // wants long messages without having to know a token number.
+  $<HTMLSelectElement>("response_length").replaceChildren(
+    ...RESPONSE_LENGTH_PRESETS.map((p) => Object.assign(document.createElement("option"), { value: p.id, textContent: p.label })),
+    Object.assign(document.createElement("option"), { value: "custom", textContent: "Custom" }),
+  );
   let current = defaultConfig();
   try { current = (await loadConfig()) ?? current; } catch { /* storage unavailable */ }
   fill(current);
+
+  $<HTMLSelectElement>("response_length").addEventListener("change", (e) => {
+    const preset = RESPONSE_LENGTH_PRESETS.find((p) => p.id === (e.target as HTMLSelectElement).value);
+    if (preset) input("max_output_tokens").value = String(preset.tokens);
+  });
+  input("max_output_tokens").addEventListener("input", () => {
+    $<HTMLSelectElement>("response_length").value = responseLengthOf(Number(input("max_output_tokens").value));
+  });
 
   $<HTMLSelectElement>("provider").addEventListener("change", () => {
     const prev = read();

@@ -1,4 +1,113 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>IntelliTrack</title>
-<meta http-equiv="refresh" content="0; url=privacy.html"></head>
-<body><p><a href="privacy.html">IntelliTrack privacy policy</a></p></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IntelliTrack — audit your tracking tags with your own LLM</title>
+<meta name="description" content="IntelliTrack is a Chrome extension that records the analytics tags a site fires while you browse, then audits them with your own LLM: what's missing, what's wrong, what's at risk.">
+<style>
+  :root { color-scheme: light dark; --bg: #fafaf9; --fg: #1f2337; --muted: #4a5070; --line: #e4e4ea; --accent: #4f46e5; --accent-fg: #fff; --card: #ffffff; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #14151c; --fg: #e8e9f1; --muted: #a4a8c0; --line: #2c2e3a; --accent: #8b85ff; --accent-fg: #14151c; --card: #1b1d26; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 56px 24px 80px; }
+  h1 { font-size: 40px; line-height: 1.15; margin: 0 0 14px; letter-spacing: -.5px; }
+  h2 { font-size: 24px; margin: 56px 0 14px; }
+  p { color: var(--fg); }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .brand svg { width: 36px; height: 36px; flex: none; }
+  .brand span { font-size: 19px; font-weight: 700; }
+  .lede { font-size: 20px; color: var(--muted); max-width: 620px; margin: 0 0 28px; }
+  .cta { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .btn { display: inline-block; padding: 11px 20px; border-radius: 10px; font-weight: 600; font-size: 15px; text-decoration: none; }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); }
+  .btn.secondary { background: var(--card); color: var(--fg); border: 1px solid var(--line); }
+  .split { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; margin: 20px 0; }
+  .split > div { flex: 1; min-width: 240px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin: 18px 0; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 18px 20px; }
+  .step .n { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-weight: 700; font-size: 14px; margin-bottom: 10px; }
+  .step h3 { font-size: 16px; margin: 0 0 6px; }
+  .step p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  img.shot { width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; }
+  ul.roadmap { margin: 10px 0 0; padding-left: 20px; }
+  ul.roadmap li { margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14.5px; }
+  footer a { color: var(--muted); text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+<div class="brand">
+  <svg viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="#4f46e5"/><circle cx="14" cy="14" r="7.4" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="14" cy="14" r="2.9" fill="#fff"/></svg>
+  <span>IntelliTrack</span>
+</div>
+
+<h1>Audit the tracking tags on any website with your own LLM.</h1>
+<p class="lede">IntelliTrack is a Chrome extension that records the analytics tags a page fires while you click through a journey — product page → cart → checkout, or a lead form, or an article — shows you every raw request, and turns it into an audit: what works, what is missing, what is wrong.</p>
+
+<div class="cta">
+  <a class="btn primary" href="https://github.com/eddiejaques/intellitrack">Get it on GitHub</a>
+  <a class="btn secondary" href="https://github.com/users/eddiejaques/projects/1">See the roadmap board</a>
+  <a class="btn secondary" href="privacy.html">Privacy policy</a>
+</div>
+
+<h2>Why a browser extension, and why an LLM</h2>
+<div class="split">
+  <div class="card">
+    <strong>Recording a journey needs a real browser.</strong>
+    <p class="muted">No script or LLM can click "add to cart" for you. The tags a site actually fires — GA4, Google Ads, GTM's <code>dataLayer</code> — only show up once a person browses the site the way a visitor would. IntelliTrack sits in your browser and watches that happen.</p>
+  </div>
+  <div class="card">
+    <strong>Judging what was captured benefits from AI.</strong>
+    <p class="muted">Deciding whether an event is missing, a parameter is wrong, or a consent signal is off takes judgement, not just rules. IntelliTrack ships a rule engine for the mechanical checks, and sends the (redacted, previewed) session to <em>your own</em> LLM for the rest — never ours, never a shared server.</p>
+  </div>
+</div>
+
+<h2>How it works</h2>
+<img class="shot" src="assets/usage-slide.png" alt="Four steps: install, start recording, browse the journey, review the audit" loading="lazy">
+<div class="steps">
+  <div class="step"><span class="n">1</span><h3>Install</h3><p>Load it from the Chrome Web Store (unlisted pilot link) or unpacked from source. Pin it to the toolbar.</p></div>
+  <div class="step"><span class="n">2</span><h3>Start recording</h3><p>Open the panel on the site you want to check and press Start. No account, no setup.</p></div>
+  <div class="step"><span class="n">3</span><h3>Browse the journey</h3><p>Click through as a visitor would. IntelliTrack captures every tag fired, live.</p></div>
+  <div class="step"><span class="n">4</span><h3>Review the audit</h3><p>Press Audit. Your own LLM key reviews the session and reports what's missing, wrong, or at risk — consent issues first.</p></div>
+</div>
+
+<h2>What you get</h2>
+<div class="split">
+  <div><img class="shot" src="assets/report.png" alt="The audit report: a score, findings grouped by severity, and a fix for each one"></div>
+  <div><img class="shot" src="assets/session-log.png" alt="The live session log: every tag request and dataLayer push, parsed and labelled"></div>
+</div>
+<table>
+  <tr><th>Vendor</th><th>Status</th></tr>
+  <tr><td>Google Analytics 4, including server-side GTM</td><td>supported (default)</td></tr>
+  <tr><td>Google Ads conversions, with GA4-vs-Ads cross-checks</td><td>supported (opt-in)</td></tr>
+  <tr><td>Everything else (Meta, TikTok, Bing, Criteo, Adobe, Braze, Segment, …)</td><td>captured and shown raw as <strong>not parsed</strong></td></tr>
+  <tr><td><code>dataLayer</code> pushes (GTM / gtag.js)</td><td>recorded next to the hits: pushed vs. sent</td></tr>
+</table>
+<p class="muted">Rules cover missing events and parameters, value mismatches, duplicates, plaintext personal data, consent signals, and failed or blocked hits — before anything reaches an LLM.</p>
+
+<h2>What's next</h2>
+<p class="muted">The GA4 + Google Ads core is built. Next on the public <a href="https://github.com/users/eddiejaques/projects/1">roadmap board</a>:</p>
+<ul class="roadmap">
+  <li>More vendors: Meta Pixel, Floodlight/CM360, Braze, Salesforce, Segment, Mixpanel, and the long tail of ad pixels.</li>
+  <li>Rule packs tuned for lead-generation and content/publisher sites, not just e-commerce.</li>
+  <li>Passphrase-encrypted API key storage, ahead of a public Chrome Web Store listing.</li>
+  <li>A shared UI design pass and PDF export for handing reports to clients.</li>
+</ul>
+
+<footer>
+  <p>No backend, no account, no telemetry. Your API key and the pages you record never leave your browser except to the LLM endpoint you configure yourself. See the <a href="privacy.html">privacy policy</a>.</p>
+  <p><a href="https://github.com/eddiejaques/intellitrack">github.com/eddiejaques/intellitrack</a></p>
+</footer>
+
+</main>
+</body>
+</html>
