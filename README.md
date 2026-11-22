@@ -1,5 +1,7 @@
 # IntelliTrack
 
+**[eddiejaques.github.io/intellitrack](https://eddiejaques.github.io/intellitrack/)** has a one-page overview, if you'd rather read that first.
+
 **Audit the tracking tags on any website with your own LLM.** IntelliTrack is a Chrome extension that records the analytics tags a page fires while you click through a journey (product page → cart → checkout), shows you every raw request, and turns it into an audit: what works, what is missing, what is wrong.
 
 - **No backend.** You bring your own LLM key (Claude, OpenAI, Gemini, or any OpenAI-compatible gateway). Requests go straight from your browser to the endpoint you configure.
