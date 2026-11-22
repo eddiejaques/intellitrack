@@ -74,6 +74,37 @@ describe("AUDIT_SCHEMA", () => {
     const bad = validate(AUDIT_SCHEMA, llmOut({ findings: [finding({ evidence: ["E1"], severity: "huge" as any })], rule_reviews: [{ rule_id: "x", verdict: "maybe" as any, explanation: "", evidence: [] }] }));
     expect(bad.length).toBe(4);
   });
+
+  // X3: short findings. title <=90, recommendation <=120, detail optional (<=300), rule_reviews[].explanation <=160.
+  it("a finding needs no detail at all", () => {
+    const { detail: _detail, ...noDetail } = finding();
+    expect(validate(AUDIT_SCHEMA, llmOut({ findings: [noDetail as AuditLLMOutput["findings"][number]] }))).toEqual([]);
+  });
+  it("rejects a title over 90 characters", () => {
+    expect(validate(AUDIT_SCHEMA, llmOut({ findings: [finding({ title: "x".repeat(91) })] }))).not.toEqual([]);
+    expect(validate(AUDIT_SCHEMA, llmOut({ findings: [finding({ title: "x".repeat(90) })] }))).toEqual([]);
+  });
+  it("rejects a recommendation over 120 characters", () => {
+    expect(validate(AUDIT_SCHEMA, llmOut({ findings: [finding({ recommendation: "x".repeat(121) })] }))).not.toEqual([]);
+    expect(validate(AUDIT_SCHEMA, llmOut({ findings: [finding({ recommendation: "x".repeat(120) })] }))).toEqual([]);
+  });
+  it("rejects a detail over 300 characters", () => {
+    expect(validate(AUDIT_SCHEMA, llmOut({ findings: [finding({ detail: "x".repeat(301) })] }))).not.toEqual([]);
+    expect(validate(AUDIT_SCHEMA, llmOut({ findings: [finding({ detail: "x".repeat(300) })] }))).toEqual([]);
+  });
+  it("rejects a rule_reviews explanation over 160 characters", () => {
+    const review = (explanation: string) => [{ rule_id: "R1", verdict: "confirmed" as const, explanation, evidence: [] }];
+    expect(validate(AUDIT_SCHEMA, llmOut({ rule_reviews: review("x".repeat(161)) }))).not.toEqual([]);
+    expect(validate(AUDIT_SCHEMA, llmOut({ rule_reviews: review("x".repeat(160)) }))).toEqual([]);
+  });
+  it("an over-long answer still gets one retry, then a clean failure", async () => {
+    const tooLong = JSON.stringify(llmOut({ findings: [finding({ title: "x".repeat(200) })] }));
+    const t = deps([tooLong, tooLong]);
+    const r = await runAudit(t.d, "s", faulty(), true);
+    expect(r.llm.status).toBe("failed");
+    expect(r.llm.error).toMatch(/after one retry/);
+    expect(r.findings.length).toBeGreaterThan(0); // rule findings still show
+  });
 });
 
 describe("buildReport", () => {

@@ -197,7 +197,8 @@ export interface Finding {
   vendor: string;
   category: FindingCategory;
   title: string;
-  detail: string;
+  /** X3: optional — a short problem/fix pair may need no further explanation. */
+  detail?: string;
   evidence: string[];
   recommendation: string;
   source: "rule" | "llm";

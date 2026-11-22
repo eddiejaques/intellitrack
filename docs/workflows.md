@@ -38,6 +38,7 @@ Skip this if you only want rule-based audits.
 11. **Confirm & send to my LLM.** The report opens: a score, a headline, journey coverage and findings grouped by severity. Each finding is tagged **rule** or **LLM**, cites the events it is about, and says how to fix it.
 
 How to read the report:
+- Each finding shows a severity chip, the problem and the fix in one line each; open **Details** for the longer explanation, evidence event IDs and any LLM review. Consent findings always come first, in their own group, whatever their severity. A count by severity sits above the list.
 - Findings that cite an event that does not exist are discarded automatically (the report tells you how many).
 - An LLM can *confirm* a rule finding or flag it as *needs context*. It can only *dispute* one by pointing at specific events, otherwise the rule finding stands.
 - The score is computed locally from the findings, so the same findings always give the same score.

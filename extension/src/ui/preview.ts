@@ -68,7 +68,7 @@ function render(plan?: JourneyPlan) {
       ? payload.rule_findings.map((f) =>
           el("article", `finding ${f.severity}`,
             el("div", "f-head", el("span", `badge ${f.severity}`, f.severity), el("span", "f-title", f.title), el("span", "chip", f.category)),
-            el("div", "", f.detail),
+            f.detail ? el("div", "", f.detail) : el("span"),
             el("div", "f-fix", el("b", "", "Fix: "), f.recommendation),
             f.evidence.length ? el("div", "f-ev", ...f.evidence.map((id) => el("span", "chip mono", id))) : el("span")))
       : [el("div", "card flat muted", "No findings from the rule engine.")]),

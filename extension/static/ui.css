@@ -197,6 +197,12 @@ td, th { word-break: normal; }
 .host { word-break: normal; overflow-wrap: anywhere; }
 .scroll td:last-child, .scroll th:last-child { width: 1%; white-space: nowrap; }
 .chip.no_data { background: var(--surface-2); color: var(--muted); }
+/* X3: severity-count summary above the findings list */
+.chip.critical { background: color-mix(in srgb, var(--sev-critical) 14%, var(--surface)); color: var(--sev-critical); }
+.chip.high { background: color-mix(in srgb, var(--sev-high) 14%, var(--surface)); color: var(--sev-high); }
+.chip.medium { background: var(--warn-soft); color: var(--sev-medium); }
+.chip.low { background: color-mix(in srgb, var(--sev-low) 18%, var(--surface)); color: var(--sev-low); }
+.chip.info { background: color-mix(in srgb, var(--sev-info) 18%, var(--surface)); color: var(--sev-info); }
 ol.muted { padding-left: 18px; margin: 0; display: grid; gap: 6px; }
 .stack > .btn.sm { justify-self: start; }
 

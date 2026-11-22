@@ -61,7 +61,8 @@ export function reportToMarkdown(r: AuditReport): string {
 }
 
 function findingMd(f: Finding): string[] {
-  const out = [`#### ${f.id} · ${f.title}`, "", `Source: ${f.source === "rule" ? "rule engine" : "LLM"} · Category: ${f.category} · Vendor: ${f.vendor}`, "", f.detail, ""];
+  const out = [`#### ${f.id} · ${f.title}`, "", `Source: ${f.source === "rule" ? "rule engine" : "LLM"} · Category: ${f.category} · Vendor: ${f.vendor}`, ""];
+  if (f.detail) out.push(f.detail, "");
   if (f.evidence.length) out.push(`Evidence: ${f.evidence.map((e) => `\`${e}\``).join(", ")}`, "");
   out.push(`**Fix:** ${f.recommendation}`, "");
   if (f.review) out.push(`*LLM review (${f.review.verdict}):* ${f.review.explanation}`, "");

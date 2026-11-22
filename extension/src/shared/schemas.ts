@@ -90,12 +90,12 @@ export const AUDIT_SCHEMA = {
           severity: { enum: ["critical", "high", "medium", "low", "info"] },
           vendor: { type: "string" },
           category: { enum: [...FINDING_CATEGORIES] },
-          title: { type: "string", maxLength: 120 },
-          detail: { type: "string", maxLength: 600 },
+          title: { type: "string", maxLength: 90 },
+          detail: { type: "string", maxLength: 300 },
           evidence: { type: "array", items: { type: "string", pattern: "^evt_" } },
-          recommendation: { type: "string", maxLength: 400 },
+          recommendation: { type: "string", maxLength: 120 },
         },
-        required: ["severity", "vendor", "category", "title", "detail", "evidence", "recommendation"],
+        required: ["severity", "vendor", "category", "title", "evidence", "recommendation"],
         additionalProperties: false,
       },
     },
@@ -106,7 +106,7 @@ export const AUDIT_SCHEMA = {
         properties: {
           rule_id: { type: "string", pattern: "^R\\d+$" },
           verdict: { enum: ["confirmed", "disputed", "needs_context"] },
-          explanation: { type: "string", maxLength: 400 },
+          explanation: { type: "string", maxLength: 160 },
           evidence: { type: "array", items: { type: "string", pattern: "^evt_" } },
         },
         required: ["rule_id", "verdict", "explanation", "evidence"],
@@ -125,7 +125,7 @@ export interface AuditLLMOutput {
     vendor: string;
     category: (typeof FINDING_CATEGORIES)[number];
     title: string;
-    detail: string;
+    detail?: string;
     evidence: string[];
     recommendation: string;
   }[];

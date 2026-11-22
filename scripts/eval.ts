@@ -80,7 +80,7 @@ interface AuditScore {
 async function scoreAudit(p: ProviderEntry, c: AuditCase): Promise<AuditScore> {
   const payload = buildPayload({ session: c.session, events: c.events, plan: c.plan });
   const report = await runAudit({ loadConfig: async () => p.cfg, provider: () => p.provider, now: () => Date.now() }, "eval", payload, true);
-  const llmText = (f: { title: string; detail: string }) => `${f.title} ${f.detail}`;
+  const llmText = (f: { title: string; detail?: string }) => `${f.title} ${f.detail ?? ""}`;
   let found = 0, llmFound = 0, llmFaults = 0;
   for (const f of c.faults) {
     if (f.rule) {
