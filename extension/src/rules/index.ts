@@ -1,5 +1,6 @@
 import type { CoverageEntry, Finding, JourneyPlan, NormalizedEvent } from "../shared/types";
 import { adsRules } from "./ads";
+import { metaRules } from "./meta";
 import { ecommerceRules, isEcommerceSession } from "./ecommerce";
 import { planRule, type PlanRuleOptions } from "./plan";
 import { universalRules } from "./universal";
@@ -30,6 +31,7 @@ export function runRules(
     coverage = p.coverage;
   }
   raw.push(...adsRules(events));
+  raw.push(...metaRules(events));
   const ecom = opts.plan
     ? opts.plan.site_type === "ecommerce"
     : isEcommerceSession(events) || opts.site === "ecommerce";

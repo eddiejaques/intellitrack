@@ -70,7 +70,7 @@ The **Tags** tab of the live panel / session log lists *every* tag-like request,
 2. Open the **Tags** tab. Turn on **Not parsed only**.
 3. Read what you see (a banner appears if tag hits came from a worker or another context and could not be tied to this tab):
    - **Nothing at all:** many European sites fire analytics only after you accept cookies. Accept the banner and click around. Also check that an ad blocker or privacy extension is not blocking requests.
-   - **Rows labelled `not parsed · <vendor>`:** the site uses a vendor IntelliTrack does not audit yet (Meta, TikTok, Criteo, Bing, ...). They are shown raw so you can still inspect them. Click a row for the full URL, decoded query parameters and body.
+   - **Rows labelled `not parsed · <vendor>`:** the site uses a vendor IntelliTrack does not audit yet (TikTok, Criteo, Bing, ...). They are shown raw so you can still inspect them. Click a row for the full URL, decoded query parameters and body.
    - **`not parsed · Universal Analytics (legacy)`:** the site still sends old UA hits instead of GA4.
    - **A warning that GA4 loaded but sent no hits:** the site's GA4 tag is silent (see Troubleshooting). IntelliTrack lists every Google tag it saw load (`G-…`, `GTM-…`, `AW-…`) at the top of the log.
    - **GA4 requests that are not recognised:** use **Export JSON** in the session log and open an issue with the file. Server-side setups that rename or obfuscate the path can look different.
@@ -81,7 +81,8 @@ The **Tags** tab of the live panel / session log lists *every* tag-like request,
 
 Every vendor is always **captured**. The vendor pills in the popup, live panel and session log decide what is **counted and listed in Events**. The audit preview has its own picker: **one vendor per audit**.
 
-- **GA4** is on by default; **Google Ads** is opt-in.
+- **GA4** is on by default. **Google Ads** and **Meta Pixel** are opt-in.
+- For Meta Pixel, the audit flags `Purchase`, `Lead`, `CompleteRegistration` and `AddToCart` events sent without an `eventID`. Without it, Meta can't deduplicate them against the same event sent server-side through the Conversions API, so the conversion is counted twice. `PageView` and other non-conversion events are never flagged.
 - Toggle the pills in the popup (also sets the default for new sessions) or above the tables in the live panel and session log. Several vendors can be on at once there.
 - On the audit preview, **Vendor to audit** is single-choice: exactly one vendor's events go into the payload and to your LLM, never a mix. It defaults to GA4 if GA4 captured events, otherwise to the vendor with the most events. Pick another vendor to audit it separately. Because an audit holds one vendor, the GA4-vs-Ads cross-checks (purchase value, currency, transaction ID) do not run from the preview.
 - A vendor left out stays visible in the Tags tab, muted, with *(left out)*.

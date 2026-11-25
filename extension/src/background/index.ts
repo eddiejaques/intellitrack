@@ -1,4 +1,4 @@
-import { decodeRawBody } from "./body";
+import { decodeBody } from "./body";
 import {
   addMarker,
   clearSession,
@@ -82,7 +82,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       initiator: d.initiator,
       type: d.type,
       timeStamp: d.timeStamp,
-      body: decodeRawBody(d.requestBody?.raw as { bytes?: ArrayBuffer }[] | undefined),
+      body: decodeBody(d.requestBody as Parameters<typeof decodeBody>[0]),
       documentId: d.documentId,
     };
     void handleRequest(req);

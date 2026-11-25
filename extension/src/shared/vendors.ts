@@ -4,6 +4,7 @@ import type { SessionMeta } from "./types";
 export const VENDOR_OPTIONS: { id: string; label: string }[] = [
   { id: "ga4", label: "GA4" },
   { id: "google_ads", label: "Google Ads" },
+  { id: "meta_pixel", label: "Meta Pixel" },
 ];
 export const DEFAULT_VENDORS = ["ga4"];
 export const vendorLabel = (id: string) => VENDOR_OPTIONS.find((v) => v.id === id)?.label ?? id;
