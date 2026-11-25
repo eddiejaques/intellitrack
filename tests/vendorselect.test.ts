@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_VENDORS, ga4Properties, selectedEventCount, sessionGa4Property, sessionVendors } from "../extension/src/shared/vendors";
+import { DEFAULT_VENDORS, auditEvents, ga4Properties, selectedEventCount, sessionAuditVendor, sessionGa4Property, sessionVendors } from "../extension/src/shared/vendors";
 import { guessVendor } from "../extension/src/vendors/tagHint";
 import { buildPayload } from "../extension/src/minimize";
 import { adsConversion, ecommerceWithAds, ecommercePlan, session } from "../fixtures/sessions";
@@ -45,6 +45,45 @@ describe("X18: one GA4 property at a time", () => {
     const events = [ev(0, "G-ONE"), ev(1, "G-TWO"), ev(2, "AW-1", "google_ads")];
     const scoped = events.filter((e) => e.vendor !== "ga4" || e.property === "G-ONE");
     expect(scoped.map((e) => e.property)).toEqual(["G-ONE", "AW-1"]);
+  });
+});
+
+describe("X21: one vendor per audit", () => {
+  it("defaults to GA4 when it captured events, else the vendor with the most events", () => {
+    expect(sessionAuditVendor({}, { ga4: 1, google_ads: 9 })).toBe("ga4");
+    expect(sessionAuditVendor({}, { ga4: 0, google_ads: 3, meta: 5 })).toBe("meta");
+    expect(sessionAuditVendor({}, { google_ads: 2 })).toBe("google_ads");
+    expect(sessionAuditVendor({}, {})).toBe("ga4"); // never zero vendors
+  });
+
+  it("keeps the user's choice while that vendor has events, else falls back to the default", () => {
+    expect(sessionAuditVendor({ audit_vendor: "google_ads" }, { ga4: 4, google_ads: 1 })).toBe("google_ads");
+    expect(sessionAuditVendor({ audit_vendor: "google_ads" }, { ga4: 4 })).toBe("ga4");
+  });
+
+  it("the audit payload only ever holds the selected vendor's events, and follows the selection", () => {
+    const evs = ecommerceWithAds();
+    const counts: Record<string, number> = {};
+    for (const e of evs) counts[e.vendor] = (counts[e.vendor] ?? 0) + 1;
+    expect(Object.keys(counts).sort()).toEqual(["ga4", "google_ads"]); // fixture mixes both
+    const build = (audit_vendor?: string) => {
+      const v = sessionAuditVendor({ audit_vendor }, counts);
+      return buildPayload({ session: session(), events: auditEvents(evs, v), plan: ecommercePlan });
+    };
+    const ga4 = build();
+    expect(ga4.events.length).toBeGreaterThan(0);
+    expect(ga4.events.every((e) => e.vendor === "ga4")).toBe(true);
+    expect(ga4.rule_findings.some((f) => f.category === "cross_vendor_mismatch")).toBe(false);
+    const ads = build("google_ads");
+    expect(ads.events.length).toBeGreaterThan(0);
+    expect(ads.events.every((e) => e.vendor === "google_ads")).toBe(true);
+  });
+
+  it("with GA4 selected, the X18 property filter still applies", () => {
+    const evs = [{ vendor: "ga4", property: "G-ONE" }, { vendor: "ga4", property: "G-TWO" }, { vendor: "google_ads", property: "AW-1" }];
+    expect(auditEvents(evs, "ga4", "G-TWO").map((e) => e.property)).toEqual(["G-TWO"]);
+    expect(auditEvents(evs, "ga4").map((e) => e.property)).toEqual(["G-ONE", "G-TWO"]);
+    expect(auditEvents(evs, "google_ads", "G-TWO").map((e) => e.property)).toEqual(["AW-1"]);
   });
 });
 

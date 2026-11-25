@@ -152,6 +152,15 @@ chrome.runtime.onMessage.addListener((msg: Message, _sender, sendResponse) => {
         }
         return msg.property;
       }
+      case "setAuditVendor": {
+        const cur = await loadSession();
+        if (cur?.id === msg.sessionId) await updateSession((s) => { s.audit_vendor = msg.vendor; });
+        else {
+          const old = await getSession(msg.sessionId);
+          if (old) await putSession({ ...old, audit_vendor: msg.vendor });
+        }
+        return msg.vendor;
+      }
       case "hello":
         return { build: __BUILD_ID__ };
       case "start": {

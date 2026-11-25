@@ -34,7 +34,7 @@ Skip this if you only want rule-based audits.
 7. Optionally press **Mark** on a step when you start it. This ties the events that follow to that step, which makes "missing at step X" findings precise.
 8. Press **Stop recording**.
 9. Open **Sessions** (popup → *Sessions*) and click **Run LLM audit** on your session.
-10. On the preview page, check the findings the rules already found, the journey coverage, the **privacy check** and the payload. Make sure *Vendors in this audit* is what you want. If the site sends to more than one GA4 property, a **GA4 property to audit** picker appears: pick one — the audit always covers exactly one property at a time, never a mix.
+10. On the preview page, check the findings the rules already found, the journey coverage, the **privacy check** and the payload. Check *Vendor to audit*: the audit covers one vendor at a time (GA4 by default). If the site sends to more than one GA4 property, a **GA4 property to audit** picker appears: pick one — the audit always covers exactly one property at a time, never a mix.
 11. **Confirm & send to my LLM.** The report opens: a score, a headline, journey coverage and findings grouped by severity. Each finding is tagged **rule** or **LLM**, cites the events it is about, and says how to fix it.
 
 How to read the report:
@@ -79,11 +79,11 @@ The **Tags** tab of the live panel / session log lists *every* tag-like request,
 
 ## 5. Choose which vendors to audit
 
-Every vendor is always **captured**. The vendor pills decide what is **counted, listed in Events, audited and sent**.
+Every vendor is always **captured**. The vendor pills in the popup, live panel and session log decide what is **counted and listed in Events**. The audit preview has its own picker: **one vendor per audit**.
 
 - **GA4** is on by default; **Google Ads** is opt-in.
-- Toggle the pills in the popup (also sets the default for new sessions), above the tables in the live panel and session log, or in the audit preview.
-- Leave Google Ads out and the audit ignores Ads events and the GA4-vs-Ads cross-checks. Include both to compare purchase value, currency and transaction ID between GA4 and the Ads conversion.
+- Toggle the pills in the popup (also sets the default for new sessions) or above the tables in the live panel and session log. Several vendors can be on at once there.
+- On the audit preview, **Vendor to audit** is single-choice: exactly one vendor's events go into the payload and to your LLM, never a mix. It defaults to GA4 if GA4 captured events, otherwise to the vendor with the most events. Pick another vendor to audit it separately. Because an audit holds one vendor, the GA4-vs-Ads cross-checks (purchase value, currency, transaction ID) do not run from the preview.
 - A vendor left out stays visible in the Tags tab, muted, with *(left out)*.
 
 ## 6. Share a result
@@ -102,7 +102,7 @@ Every vendor is always **captured**. The vendor pills decide what is **counted, 
 | **"GA4 G-… loaded on this page but sent no GA4 hits"** | The site's GA4 tag is present but silent: IntelliTrack saw the tag load and no `/g/collect` hit follow. Usually the GA4 tag waits for cookie consent, its GTM trigger never fires, or it is misconfigured. Requests to `google.com/ccm/collect` are Google tag pings, not GA4 hits. This is a finding about the site. |
 | Count stays at 0 | No tags yet, or the site waits for cookie consent. See [workflow 4](#4-debug-a-site-that-shows-no-events). Check the vendor pills: a vendor that is left out is not counted. |
 | Count is lower than the number of tag requests | Requests IntelliTrack cannot parse count as *tag requests*, not *events*. Look for the *not parsed* chip. |
-| **Confirm & send to my LLM** is greyed out | No LLM configured, the session has no events for the chosen vendors, or the privacy check found raw personal data. The page says which. |
+| **Confirm & send to my LLM** is greyed out | No LLM configured, the session has no events for the vendor being audited, or the privacy check found raw personal data. The page says which. |
 | Report says **LLM review failed** | Auth error, wrong model name, timeout or a model that did not return valid JSON twice. The message shows the reason; the rule findings are still valid. |
 | Test connection fails with a CORS or network error | Check the base URL (no trailing path other than the provider's), and that the gateway allows browser requests. |
 | Side panel does not open | Needs Chrome 116+. Use **Live panel** in the popup, or **Sessions → Log** for the same tables in a tab. |
