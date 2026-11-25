@@ -22,7 +22,8 @@
 | **Google Analytics 4**, including server-side GTM and first-party endpoints | supported (default) |
 | **Google Ads** conversions and enhanced conversions, with GA4-vs-Ads cross-checks | supported (opt-in) |
 | **Meta Pixel** (`facebook.com/tr` pings): events, `eventID`, value, currency, content IDs; flags conversions without an `eventID` (breaks CAPI dedup) and plaintext Advanced Matching data | supported (opt-in) |
-| Everything else (TikTok, Bing, Criteo, Adobe, Braze, Segment, ...) | captured and shown raw as **not parsed**; parsers are on the [backlog](https://github.com/users/eddiejaques/projects/1) |
+| **Adobe Analytics** (AppMeasurement `/b/ss/` hits, including first-party `smetrics.*` hosts): page views, links, eVars/props, events, products and custom context data. The audited event keeps only those fields, while the raw request stays in the Tags tab. | supported (opt-in) |
+| Everything else (TikTok, Bing, Criteo, Adobe Web SDK, Braze, Segment, ...) | captured and shown raw as **not parsed**; parsers are on the [backlog](https://github.com/users/eddiejaques/projects/1) |
 | **`dataLayer` pushes** (GTM / gtag.js, including renamed layers) | recorded next to the hits; each pushed GA4 event is marked **sent** or **not sent** for its page load |
 
 Rules cover: missing events and parameters per journey step, `value` vs. items total, missing `transaction_id`/currency, duplicate conversions, double-fired events, plaintext personal data, consent signals, `client_id` changes, failed or blocked hits, GA4/Ads mismatches, and Meta conversions without an `eventID`.
@@ -99,7 +100,7 @@ Releases: the version lives only in `package.json`. Pushing a `vX.Y.Z` tag runs 
 extension/src/
   background/   capture, session store, planner, audit, badge   (service worker)
   content/      page-context extractor (injected on demand)
-  vendors/      one file per vendor: matcher + parser           (ga4.ts, googleAds.ts, metaPixel.ts)
+  vendors/      one file per vendor: matcher + parser           (ga4.ts, googleAds.ts, metaPixel.ts, adobeAnalytics.ts)
   minimize/     noise/duplicate removal, redaction, payload
   rules/        universal, plan-driven, e-commerce, Google Ads, Meta Pixel rules
   llm/          provider adapters, JSON Schema validator, retry

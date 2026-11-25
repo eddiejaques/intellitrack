@@ -81,8 +81,9 @@ The **Tags** tab of the live panel / session log lists *every* tag-like request,
 
 Every vendor is always **captured**. The vendor pills in the popup, live panel and session log decide what is **counted and listed in Events**. The audit preview has its own picker: **one vendor per audit**.
 
-- **GA4** is on by default. **Google Ads** and **Meta Pixel** are opt-in.
+- **GA4** is on by default. **Google Ads**, **Meta Pixel** and **Adobe Analytics** are opt-in.
 - For Meta Pixel, the audit flags `Purchase`, `Lead`, `CompleteRegistration` and `AddToCart` events sent without an `eventID`. Without it, Meta can't deduplicate them against the same event sent server-side through the Conversions API, so the conversion is counted twice. `PageView` and other non-conversion events are never flagged.
+- Adobe Analytics hits (`/b/ss/…`, also on first-party `smetrics.*` hosts) are large. IntelliTrack keeps only the page name, URL, channel, events, products, purchase ID, currency, eVars, props, link names and your own context data. It drops Adobe's built-in `a.*` data (ActivityMap, lifecycle) and browser details, and cuts any value over 200 characters. The full raw request is still in the Tags tab.
 - Toggle the pills in the popup (also sets the default for new sessions) or above the tables in the live panel and session log. Several vendors can be on at once there.
 - On the audit preview, **Vendor to audit** is single-choice: exactly one vendor's events go into the payload and to your LLM, never a mix. It defaults to GA4 if GA4 captured events, otherwise to the vendor with the most events. Pick another vendor to audit it separately. Because an audit holds one vendor, the GA4-vs-Ads cross-checks (purchase value, currency, transaction ID) do not run from the preview.
 - A vendor left out stays visible in the Tags tab, muted, with *(left out)*.
