@@ -23,8 +23,6 @@ const KEEP: Record<string, string> = {
   purchaseID: "purchaseID",
   cc: "currency",
   pev2: "link_name",
-  pageType: "pageType",
-  server: "server",
 };
 const VAR = /^(?:v|c)(\d{1,3})$/; // eVar1–250, prop1–75
 const LINK: Record<string, string> = { lnk_o: "custom_link", lnk_d: "download_link", lnk_e: "exit_link" };
