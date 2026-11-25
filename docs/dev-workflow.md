@@ -55,7 +55,7 @@ Depends on: B2            (optional)
 | Status | Who moves it there | Meaning |
 |---|---|---|
 | Backlog | (default) | Not yet specified, or not next. The agent may refine the spec here, but never builds it |
-| Ready | **only you** | The body has at least one real `- [ ]` criterion; the agent may take it. The CLI refuses this move from the agent |
+| Ready | **only you** | The body has a non-empty `## Goal`, at least 2 real `- [ ]` criteria and a `## Notes` section naming a file (the CLI lists what's missing; `--force` overrides). The agent may take it. The CLI refuses this move from the agent |
 | In progress | dev agent | One card at a time, on branch `<id>-<slug>` |
 | Blocked | dev agent | WIP pushed; its question is the latest `[agent · blocked]` comment |
 | Review | dev agent | PR open with `Closes #<issue>`, all checks pass |

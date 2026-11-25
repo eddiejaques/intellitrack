@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error plain .mjs module without types
 import * as lib from "../scripts/kanban-lib.mjs";
 
-const { checkMove, criteria, needsRefine, refinedBody, formatComment, hasCriteria, isApproval, itemToCard, legacyCards, newCardBody, nextCard, normEntry, parseComment, parseTaskFile, parseTitle, pendingAction, tickCriterion } = lib;
+const { checkMove, checkSpec, criteria, needsRefine, refinedBody, formatComment, hasCriteria, isApproval, itemToCard, legacyCards, newCardBody, nextCard, normEntry, parseComment, parseTaskFile, parseTitle, pendingAction, tickCriterion } = lib;
 
 /** A project item as the GraphQL query in gh-board.mjs returns it. */
 function item(title: string, f: { Status?: string; Prio?: number; Size?: string; Branch?: string } = {}, extra: Record<string, unknown> = {}) {
@@ -74,6 +74,19 @@ describe("moving cards", () => {
     expect(checkMove(card({}), "in_progress", [], { by: "agent" })).toMatch(/move it to Ready before any work starts/);
     expect(checkMove(card({ status: "ready" }), "in_progress", [], { by: "agent" })).toBeUndefined();
     expect(checkMove(card({ status: "blocked" }), "in_progress", [], { by: "agent" })).toBeUndefined();
+  });
+
+  it("X4: Ready refuses a thin spec and lists exactly what's missing; --force overrides", () => {
+    const thin = card({ specMissing: checkSpec("## Goal\nx\n\n## Acceptance criteria\n- [ ] one\n") });
+    const err = checkMove(thin, "ready")!;
+    expect(err).toMatch(/X1 can't be Ready yet: the issue body is missing/);
+    expect(err).toMatch(/at least 2 acceptance criteria .*it has 1/);
+    expect(err).toMatch(/a "## Notes" section/);
+    expect(err).not.toMatch(/Goal/);
+    expect(err).toMatch(/--force/);
+    expect(checkMove(thin, "ready", [], { force: true })).toBeUndefined();
+    expect(checkMove(card({ specMissing: [] }), "ready")).toBeUndefined();
+    expect(checkMove(card({ status: "ready", specMissing: ["x"] }), "ready")).toBeUndefined(); // already Ready
   });
 
   it("criteria: placeholders and other sections don't count", () => {
@@ -275,5 +288,37 @@ describe("ticking acceptance criteria", () => {
     expect(ticked).toContain("## Goal\n- [ ] not a criterion");
     expect(tickCriterion(body, 2, false)).toContain("- [ ] second");
     expect(() => tickCriterion(body, 9)).toThrow(/no acceptance criterion 9/);
+  });
+});
+
+describe("X4: checkSpec, the Ready gate", () => {
+  const GOOD = "## Goal\nShow a red badge when GA4 goes silent, so users notice broken tags.\n\n## Acceptance criteria\n- [ ] Badge turns red after 30 s without GA4 hits\n- [ ] `npm test` passes\n\n## Out of scope\n- Other vendors\n\n## Notes\n- `extension/src/background/badge.ts`\n";
+  it("passes a complete spec", () => {
+    expect(checkSpec(GOOD)).toEqual([]);
+  });
+  it("needs a Goal section with real text (not the placeholder)", () => {
+    expect(checkSpec(GOOD.replace(/## Goal\n.*\n/, ""))).toEqual(['a "## Goal" section']);
+    expect(checkSpec(GOOD.replace(/(## Goal\n).*\n/, "$1_Why this matters and for whom._\n"))).toEqual(['text under "## Goal"']);
+    expect(checkSpec(GOOD.replace(/(## Goal\n).*\n/, "$1\n"))).toEqual(['text under "## Goal"']);
+  });
+  it("needs at least 2 real acceptance criteria", () => {
+    const one = GOOD.replace("- [ ] `npm test` passes\n", "");
+    expect(checkSpec(one)).toEqual(['at least 2 acceptance criteria ("- [ ] …" under "## Acceptance criteria"; it has 1)']);
+    expect(checkSpec(one.replace("## Acceptance criteria\n", "## Acceptance criteria\n- [ ] _Checkable statement._\n"))[0]).toMatch(/it has 1/);
+    expect(checkSpec(GOOD.replace("## Acceptance criteria", "## Criteria"))[0]).toMatch(/it has 0/);
+  });
+  it("needs a Notes section that names a file", () => {
+    expect(checkSpec(GOOD.replace(/## Notes\n.*\n/, ""))).toEqual(['a "## Notes" section']);
+    expect(checkSpec(GOOD.replace("`extension/src/background/badge.ts`", "touch the badge code"))).toEqual(['a file to touch under "## Notes" (e.g. `extension/src/…`)']);
+    expect(checkSpec(GOOD.replace("`extension/src/background/badge.ts`", "README.md"))).toEqual([]);
+  });
+  it("ignores everything under ## Original request", () => {
+    const refined = refinedBody("## Goal\nOld.\n\n## Acceptance criteria\n- [ ] a\n- [ ] b\n\n## Notes\n- `scripts/x.mjs`\n", "## Goal\nNew goal.\n\n## Acceptance criteria\n- [ ] only one\n");
+    expect(refined).toMatch(/## Original request/);
+    expect(checkSpec(refined)).toEqual(['at least 2 acceptance criteria ("- [ ] …" under "## Acceptance criteria"; it has 1)', 'a "## Notes" section']);
+    expect(checkSpec(`${GOOD}\n## Original request\n> rough idea`)).toEqual([]);
+  });
+  it("the new-card template fails until it is filled in", () => {
+    expect(checkSpec(newCardBody())).toHaveLength(3);
   });
 });
