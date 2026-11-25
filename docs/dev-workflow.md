@@ -137,3 +137,5 @@ Review mode doesn't edit product code. A code change you ask for becomes a card.
 ## Checks every card must pass
 
 `npm run typecheck && npm test && npm run build`, plus `npm run e2e` for capture, worker or UI changes. The e2e test serves `scripts/e2e/site/` on port 8123 and records it with the built extension in Chrome for Testing. It checks gtag GA4, a server-side GA4 path, Google Ads, unparsed tags, followed new tabs and separate sessions.
+
+`npm run build && npm run perf [-- --runs 5]` measures the overhead of recording (X20). It runs the same journey on that site, plus a burst of 200 GA4 hits, alternating between not recording and recording. It prints the tab's script time and peak JS heap, the worker's CPU time and heap, and the top self-time functions on each side (worker frames are mapped through the source map). It uses port 8123 too, so don't run it alongside `npm run e2e`. The numbers are indicative, not a benchmark.
