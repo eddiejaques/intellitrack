@@ -112,6 +112,8 @@ export interface SessionMeta {
   vendors?: string[];
   /** X18: which GA4 property (measurement ID) the audit covers, when the session has more than one. */
   ga4_property?: string;
+  /** X21: which single vendor the audit covers (default: GA4 if it has events, else the busiest vendor). */
+  audit_vendor?: string;
   /** parsed events per vendor, for all vendors seen */
   vendor_counts?: Record<string, number>;
   /** where the recording started: used to group sessions by site in the history */
@@ -142,6 +144,7 @@ export type Message =
   | { type: "listSessions" }
   | { type: "setVendors"; vendors: string[]; sessionId?: string; asDefault?: boolean }
   | { type: "setGa4Property"; property: string; sessionId: string }
+  | { type: "setAuditVendor"; vendor: string; sessionId: string }
   | { type: "deleteSession"; sessionId: string }
   | { type: "getState" }
   | { type: "getEvents"; sessionId: string }

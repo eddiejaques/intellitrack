@@ -39,3 +39,21 @@ export function sessionGa4Property(s: Pick<SessionMeta, "ga4_property">, propert
   if (properties.length < 2) return undefined;
   return s.ga4_property && properties.includes(s.ga4_property) ? s.ga4_property : properties[0];
 }
+
+/**
+ * X21: the audit covers exactly one vendor at a time (never zero, never a mix). The stored choice wins
+ * while that vendor still has events; otherwise GA4 if it captured events, else the vendor with the
+ * most events, else GA4. Independent of `vendors`, which drives the live counts and the session log.
+ */
+export function sessionAuditVendor(s: Pick<SessionMeta, "audit_vendor">, counts: Record<string, number>): string {
+  if (s.audit_vendor && (counts[s.audit_vendor] ?? 0) > 0) return s.audit_vendor;
+  if ((counts.ga4 ?? 0) > 0) return "ga4";
+  let best = "ga4", n = 0;
+  for (const [v, c] of Object.entries(counts)) if (c > n) { best = v; n = c; }
+  return best;
+}
+
+/** X21 + X18: the events that feed the audit: one vendor, and for GA4 one property when several fired. */
+export function auditEvents<E extends { vendor: string; property?: string }>(events: E[], vendor: string, ga4Property?: string): E[] {
+  return events.filter((e) => e.vendor === vendor && (vendor !== "ga4" || !ga4Property || e.property === ga4Property));
+}

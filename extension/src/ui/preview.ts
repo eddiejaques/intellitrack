@@ -2,8 +2,8 @@ import { buildPayload, findRawPii } from "../minimize";
 import { loadConfig, validateConfig } from "../llm/config";
 import { sessionPlan } from "../planner/plan";
 import { fmtDuration, fmtWhen, guardWorker, pageUrl, resolveSession, siteLabel } from "./session";
-import { saveGa4Property, saveVendors, propertyPicker, vendorPicker } from "./vendorPicker";
-import { ga4Properties, sessionGa4Property, sessionVendors, silentGa4 } from "../shared/vendors";
+import { auditVendorPicker, saveAuditVendor, saveGa4Property, propertyPicker } from "./vendorPicker";
+import { auditEvents, ga4Properties, sessionAuditVendor, sessionGa4Property, silentGa4 } from "../shared/vendors";
 import type { StoredEvent } from "../background/store";
 import type { AuditReport, JourneyPlan, Message, Payload, RequestRow, SessionMeta } from "../shared/types";
 
@@ -36,19 +36,19 @@ function parsePlan(text: string): JourneyPlan | undefined | Error {
 
 function render(plan?: JourneyPlan) {
   if (!session) return;
-  const sel = sessionVendors(session);
-  const chosen = events.filter((e) => sel.includes(e.vendor));
   const counts: Record<string, number> = {};
   for (const e of events) counts[e.vendor] = (counts[e.vendor] ?? 0) + 1;
-  $("vendors").replaceChildren(vendorPicker(sel, counts, async (next) => {
-    await saveVendors(next, { sessionId: session!.id });
-    session = { ...session!, vendors: next };
+  // X21: the audit covers exactly one vendor at a time, never a mix.
+  const vendor = sessionAuditVendor(session, counts);
+  $("vendors").replaceChildren(auditVendorPicker(counts, vendor, async (next) => {
+    await saveAuditVendor(next, session!.id);
+    session = { ...session!, audit_vendor: next };
     render(plan);
   }));
 
   // X18: when more than one GA4 property fired, audit exactly one at a time so findings never
   // get attributed to the wrong property.
-  const properties = ga4Properties(chosen);
+  const properties = vendor === "ga4" ? ga4Properties(events) : [];
   const activeProperty = sessionGa4Property(session, properties);
   const wrap = $("ga4-property-wrap");
   wrap.hidden = properties.length < 2;
@@ -59,7 +59,7 @@ function render(plan?: JourneyPlan) {
       render(plan);
     }));
   }
-  const scoped = activeProperty ? chosen.filter((e) => e.vendor !== "ga4" || e.property === activeProperty) : chosen;
+  const scoped = auditEvents(events, vendor, activeProperty);
 
   payload = buildPayload({ session, events: scoped, plan });
   $("fcount").textContent = `· ${payload.rule_findings.length}`;

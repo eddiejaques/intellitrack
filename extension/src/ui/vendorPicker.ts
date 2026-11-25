@@ -59,3 +59,33 @@ export function propertyPicker(properties: string[], selected: string, onPick: (
 
 /** Persist the GA4 property choice for one session. */
 export const saveGa4Property = (property: string, sessionId: string) => send<string>({ type: "setGa4Property", property, sessionId });
+
+/**
+ * X21: which single vendor the audit covers. Single-select like `propertyPicker`: exactly one vendor is
+ * active, never zero and never more than one. Lists the vendors that captured events (with counts).
+ */
+export function auditVendorPicker(counts: Record<string, number>, selected: string, onPick: (next: string) => void): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "pills";
+  wrap.setAttribute("role", "radiogroup");
+  wrap.setAttribute("aria-label", "Vendor to audit");
+  const known = VENDOR_OPTIONS.map((v) => v.id);
+  const ids = [...known, ...Object.keys(counts).filter((id) => !known.includes(id))].filter((id) => id === selected || (counts[id] ?? 0) > 0);
+  for (const id of ids) {
+    const on = id === selected;
+    const n = counts[id] ?? 0;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `pill ${on ? "on" : ""}`.trim();
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(on));
+    b.title = on ? `Auditing ${vendorLabel(id)}` : `Click to audit ${vendorLabel(id)} instead`;
+    b.textContent = n > 0 ? `${vendorLabel(id)} · ${n}` : vendorLabel(id);
+    b.addEventListener("click", () => { if (!on) onPick(id); });
+    wrap.append(b);
+  }
+  return wrap;
+}
+
+/** Persist the audit vendor choice for one session. */
+export const saveAuditVendor = (vendor: string, sessionId: string) => send<string>({ type: "setAuditVendor", vendor, sessionId });
