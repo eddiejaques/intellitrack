@@ -26,7 +26,7 @@ describe("google ads matcher", () => {
     expect(isAdsConversion({ url: "nope" })).toBe(false);
   });
   it("is registered, GA4 and Ads never claim the same request", () => {
-    expect(vendors.map((v) => v.id)).toEqual(["ga4", "google_ads"]);
+    expect(vendors.map((v) => v.id)).toEqual(["ga4", "google_ads", "adobe_analytics"]);
     const ga = "https://www.google-analytics.com/g/collect?v=2&tid=G-ABC123";
     expect(vendors.filter((v) => v.match(req(URL1))).map((v) => v.id)).toEqual(["google_ads"]);
     expect(vendors.filter((v) => v.match(req(ga))).map((v) => v.id)).toEqual(["ga4"]);

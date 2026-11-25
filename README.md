@@ -21,7 +21,8 @@
 |---|---|
 | **Google Analytics 4**, including server-side GTM and first-party endpoints | supported (default) |
 | **Google Ads** conversions and enhanced conversions, with GA4-vs-Ads cross-checks | supported (opt-in) |
-| Everything else (Meta, TikTok, Bing, Criteo, Adobe, Braze, Segment, ...) | captured and shown raw as **not parsed**; parsers are on the [backlog](https://github.com/users/eddiejaques/projects/1) |
+| **Adobe Analytics** (AppMeasurement `/b/ss/` hits, including first-party `smetrics.*` hosts): page views, links, eVars/props, events, products and custom context data. The audited event keeps only those fields, while the raw request stays in the Tags tab. | supported (opt-in) |
+| Everything else (Meta, TikTok, Bing, Criteo, Adobe Web SDK, Braze, Segment, ...) | captured and shown raw as **not parsed**; parsers are on the [backlog](https://github.com/users/eddiejaques/projects/1) |
 | **`dataLayer` pushes** (GTM / gtag.js, including renamed layers) | recorded next to the hits; each pushed GA4 event is marked **sent** or **not sent** for its page load |
 
 Rules cover: missing events and parameters per journey step, `value` vs. items total, missing `transaction_id`/currency, duplicate conversions, double-fired events, plaintext personal data, consent signals, `client_id` changes, failed or blocked hits, and GA4/Ads mismatches.
