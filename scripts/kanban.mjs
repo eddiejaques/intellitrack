@@ -29,7 +29,7 @@
 // (or ship it / LGTM / approved) means merge the PR; anything else is feedback. On a Blocked card,
 // any comment is the answer. Only comments from the board owner's account count.
 //
-// Rules the CLI enforces: Ready needs acceptance criteria (--force overrides); only the PM moves a card
+// Rules the CLI enforces: Ready needs a full spec (Goal, 2+ criteria, Notes naming a file; --force overrides); only the PM moves a card
 // to Ready, and the agent can't start a Backlog card; WIP limit 1;
 // Done only when the card's PR ("Closes #n") is merged into main, never by hand.
 // Comments are by "agent" when run from a worktree other than the main checkout, by "pm" otherwise.
@@ -38,7 +38,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG, comment, createCardIssue, editBody, findCard, issueComments, listCards, project, reopenIssue, setField } from "./gh-board.mjs";
 import { syncBranch } from "./git-sync.mjs";
-import { STATUSES, STATUS_NAMES, checkMove, criteria, formatComment, hasCriteria, newCardBody, nextCard, parseComment, refinedBody, sortCards, tickCriterion } from "./kanban-lib.mjs";
+import { STATUSES, STATUS_NAMES, checkMove, checkSpec, criteria, formatComment, newCardBody, nextCard, parseComment, refinedBody, sortCards, tickCriterion } from "./kanban-lib.mjs";
 
 function mainCheckout() {
   if (process.env.KANBAN_DIR) return process.env.KANBAN_DIR;
@@ -85,7 +85,7 @@ try {
       console.log(`\n${STATUS_NAMES[s]}:`);
       for (const c of by(s)) {
         const pr = c.prs.find((p) => p.state === "OPEN") ?? c.prs[0];
-        console.log(`  ${c.id.padEnd(5)} #${String(c.number).padEnd(4)} ${c.title.slice(0, 80)}${c.branch ? `  [${c.branch}]` : ""}${pr ? `  PR #${pr.number}${pr.merged ? " merged" : ""}` : ""}${s === "ready" && !c.hasCriteria ? "  ⚠ no acceptance criteria" : ""}${c.pending ? `  ← new comment: ${c.pending.action}` : ""}`);
+        console.log(`  ${c.id.padEnd(5)} #${String(c.number).padEnd(4)} ${c.title.slice(0, 80)}${c.branch ? `  [${c.branch}]` : ""}${pr ? `  PR #${pr.number}${pr.merged ? " merged" : ""}` : ""}${(s === "ready" || s === "in_progress") && c.specMissing.length ? `  ⚠ missing: ${c.specMissing.map((m) => m.replace(/ \(.*\)$/, "")).join("; ")}` : ""}${c.pending ? `  ← new comment: ${c.pending.action}` : ""}`);
       }
     }
     const toRefine = cards.filter((c) => c.refine);
@@ -162,12 +162,12 @@ try {
     const n = Math.max(0, ...cards.map((c) => Number(/^X(\d+)$/.exec(c.id)?.[1] ?? 0))) + 1;
     const id = `X${n}`;
     const ready = args.includes("--ready");
-    const status = ready && checkMove({ id, status: "backlog", hasCriteria: hasCriteria(body) }, "ready") === undefined ? "ready" : "backlog";
+    const status = ready && checkMove({ id, status: "backlog", specMissing: checkSpec(body) }, "ready") === undefined ? "ready" : "backlog";
     const size = flag("size", "S");
     if (!["S", "M", "L"].includes(size)) die("size must be S, M or L");
     const r = createCardIssue({ title: `${id}: ${title}`, body, labels: [`type:${flag("type", "feature")}`], status, prio: Number(flag("prio", 0)), size });
     console.log(`${id}\t#${r.number}\t${r.url}\t${STATUS_NAMES[status]}`);
-    if (ready && status !== "ready") console.error(`${id} stays in Backlog: add acceptance criteria ("- [ ] …") first`);
+    if (ready && status !== "ready") console.error(`${id} stays in Backlog: the spec is missing ${checkSpec(body).join("; ")}`);
   } else if (cmd === "refine") {
     const [id] = positional();
     if (!id || !flag("body-file") || !flag("summary-file")) die("usage: refine <ID> --body-file spec.md --summary-file note.md");

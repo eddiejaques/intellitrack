@@ -59,6 +59,7 @@ export function itemToCard(node, owner) {
     type: labels.find((l) => l.startsWith("type:"))?.slice(5) ?? "task",
     prs, merged: prs.some((p) => p.merged),
     hasCriteria: hasCriteria(c.body ?? ""),
+    specMissing: checkSpec(c.body ?? ""),
     activity,
   };
   card.pending = pendingAction(card, owner);
@@ -176,7 +177,7 @@ export const sortCards = (cards) => [...cards].sort(byPrio);
 /**
  * Can a card move to this status? Returns an error message, or undefined.
  * - Done only happens through a PR merged into main (never forced).
- * - Ready needs at least one real acceptance criterion.
+ * - Ready needs a full spec (`checkSpec`: Goal, 2+ criteria, Notes naming a file); --force overrides.
  * - WIP limit 1.
  * - Only the PM moves a card to Ready (`by: "agent"` is refused, even with force), and a Backlog card
  *   never goes straight to In progress: it has to be made Ready first.
@@ -193,8 +194,9 @@ export function checkMove(card, status, cards = [], { force = false, by = "pm" }
     return `${card.id} can't be Done: a card is Done only when its PR ("Closes #${card.number}") is merged into main.`;
   }
   if (force) return undefined;
-  if (status === "ready" && card.status !== "ready" && !card.hasCriteria) {
-    return `${card.id} can't be Ready yet: the issue needs at least one acceptance criterion ("- [ ] …") under "## Acceptance criteria". Use --force to override.`;
+  if (status === "ready" && card.status !== "ready") {
+    const missing = card.specMissing ?? (card.hasCriteria ? [] : ['at least one acceptance criterion ("- [ ] …") under "## Acceptance criteria"']);
+    if (missing.length) return `${card.id} can't be Ready yet: the issue body is missing\n${missing.map((m) => `  - ${m}`).join("\n")}\nUse --force to override.`;
   }
   if (status === "in_progress") {
     const other = cards.find((c) => c.status === "in_progress" && c.id !== card.id);
@@ -218,6 +220,34 @@ export function parseComment(text = "") {
   if (!m) return { author: "pm", kind: "note", body: text.trim() };
   if (!m[1] && m[2] === "agent") return { author: "agent", kind: "note", body: text.slice(m[0].length).trim() };
   return { author: m[1] ? "agent" : "pm", kind: KINDS.includes(m[2]) ? m[2] : "note", body: text.slice(m[0].length).trim() };
+}
+
+/**
+ * X4: the Ready gate. Returns what the issue body is missing (empty list = specified):
+ * a non-empty `## Goal`, at least 2 real `- [ ]` under `## Acceptance criteria`, and a `## Notes`
+ * section naming at least one file. Text under `## Original request` (the PM's quoted first draft,
+ * kept by `refine`) doesn't count. Placeholders (`_…_`) don't count either.
+ */
+export const SPEC_MIN_CRITERIA = 2;
+const FILE_REF = /[\w.-]+\/[\w./-]*[\w-]|\b[\w-]+\.(?:ts|tsx|mjs|cjs|js|json|md|html|css|ya?ml|sh)\b/;
+export function checkSpec(body = "") {
+  const at = body.search(/^## Original request[ \t]*$/m);
+  const spec = at >= 0 ? body.slice(0, at) : body;
+  const section = (name) => {
+    const part = spec.split(/^## /m).slice(1).find((p) => new RegExp(`^${name}[ \t]*(\n|$)`, "i").test(p));
+    return part === undefined ? undefined : part.slice(part.indexOf("\n") + 1 || part.length);
+  };
+  const real = (s) => s.split("\n").map((l) => l.replace(/^\s*(?:[-*]\s*)?/, "").trim()).filter((l) => l && !/^_.*_?$/.test(l));
+  const missing = [];
+  const goal = section("Goal");
+  if (goal === undefined) missing.push('a "## Goal" section');
+  else if (real(goal).length === 0) missing.push('text under "## Goal"');
+  const n = criteria(spec).filter((c) => !/^_/.test(c.text)).length;
+  if (n < SPEC_MIN_CRITERIA) missing.push(`at least ${SPEC_MIN_CRITERIA} acceptance criteria ("- [ ] …" under "## Acceptance criteria"; it has ${n})`);
+  const notes = section("Notes");
+  if (notes === undefined) missing.push('a "## Notes" section');
+  else if (!FILE_REF.test(notes)) missing.push('a file to touch under "## Notes" (e.g. `extension/src/…`)');
+  return missing;
 }
 
 /** True when the body's "Acceptance criteria" section has at least one real (non-placeholder) checkbox. */
